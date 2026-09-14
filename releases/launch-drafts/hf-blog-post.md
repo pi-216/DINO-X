@@ -14,6 +14,13 @@ recomputes the headline metric. You shouldn't have to trust us — and here, you
 
 ## The model
 
+<iframe
+	src="https://huggingface.co/timlawrenz/dinox-ct-msd-hepatic-vessel-vit-base-v1"
+	frameborder="0"
+	width="100%"
+	height="450"
+></iframe>
+
 **`dinox-ct-msd-hepatic-vessel-vit-base-v1`** — a scale-aware ViT-Base (86M) organ
 specialist for hepatic/portal vessel tissue detection in abdominal CT.
 
@@ -34,10 +41,21 @@ clf = load_classifier("timlawrenz/dinox-ct-msd-hepatic-vessel-vit-base-v1")
 p = predict_proba(clf, hu_slice, pixel_spacing=(0.77, 0.77), slice_thickness=1.5)
 ```
 
-`pip install dinox-zoo` (from the DINO-X GitHub repo) gives you `zoo.predict`. The
-trained −30/120 HU window and the spacing embedding are baked in, so preprocessing
-can't silently diverge from the validated pipeline. The merged backbone makes the
-LoRA double-wrap footgun structurally impossible.
+The `zoo.predict` helper ships with the DINO-X codebase. Install it straight from
+GitHub (it is not on PyPI — do not `pip install dinox-zoo`, that name is not
+published):
+
+```bash
+git clone https://github.com/timlawrenz/DINO-X.git
+cd DINO-X
+pip install torch torchvision            # build for your hardware (CPU/CUDA/ROCm)
+pip install -r requirements-inference.txt
+pip install .                            # makes `from zoo.predict import ...` work
+```
+
+The trained −30/120 HU window and the spacing embedding are baked in, so
+preprocessing can't silently diverge from the validated pipeline. The merged
+backbone makes the LoRA double-wrap footgun structurally impossible.
 
 ## The evidence envelope (what "release" means here)
 
@@ -46,7 +64,9 @@ Every zoo model ships five things beyond the weights:
 1. **Data provenance** — sources, licenses, splits, slice counts, machine-generated
    from the on-disk files (`data_catalog.md` / `data_provenance.json`).
 2. **The decision trail** — the pan-organ failure that pushed us to organ
-   specialists, including a documented **KILL** with a discontinuation notice.
+   specialists, including a documented **KILL** with a discontinuation notice: a
+   multi-organ generalized model that learned scanner identity over anatomy and
+   collapsed (view retrieval 34× vs a 100× gate, scanner-fingerprinting AUC 0.981).
 3. **External validation** — the TCIA CRLM held-out evaluation (0.9413).
 4. **Negative results, published as assets** — e.g. the colon specialist that
    FAILed its gate (AUROC 0.6529) and was *not* released.
@@ -75,10 +95,6 @@ red-team. The findings that survived: disclosing them is the credibility.
   channels. A reviewer asked how much that costs. We measured it on all 17,639
   external slices: true 3-slice context 0.94113 vs duplicated 0.94130 — **Δ =
   −0.0002**. Collapsing the z-axis costs nothing measurable here.
-- **A latent encoding bug, found and fixed.** The 16-bit HU encoding was
-  internally inconsistent across the codebase (`u16 = round(HU*10)+32768` is the
-  canonical form, verified against on-disk bytes). Fixed with regression tests
-  (`tests/test_hu16_encoding.py`).
 
 ## Scope and limits (read this before using it)
 
