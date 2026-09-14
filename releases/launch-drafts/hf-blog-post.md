@@ -2,8 +2,11 @@
 title: "DINO-X: a CT organ-specialist that ships the evidence, not just the weights"
 slug: dinox-ct-organ-specialist-evidence-envelope
 summary: "A scale-aware ViT-Base for hepatic-vessel detection, external-validated at 0.9413 — released with a full evidence envelope: the negative results, the leakage audit, and a recompute script."
+thumbnail: /blog/assets/dinox-ct-organ-specialist-evidence-envelope/thumbnail.png
 tags: ["medical-imaging", "ct", "vision-transformer", "self-supervised", "model-release"]
 ---
+
+<!-- Thumbnail source: releases/launch-drafts/hf-blog-thumbnail.png (1200×648) — upload alongside the post. -->
 
 # DINO-X: a CT organ-specialist that ships the evidence, not just the weights
 
