@@ -17,8 +17,6 @@ recomputes the headline metric. You shouldn't have to trust us, and here, you do
 
 ## The model
 
-<Widget id="timlawrenz/dinox-ct-msd-hepatic-vessel-vit-base-v1" />
-
 **`dinox-ct-msd-hepatic-vessel-vit-base-v1`** is a scale-aware ViT-Base (86M) organ
 specialist for hepatic/portal vessel tissue detection in abdominal CT.
 
