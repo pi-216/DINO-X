@@ -9,6 +9,10 @@ Protocol:
 - Embed both views with the backbone (CLS token, pre-projection head).
 - Compute retrieval accuracy: for query i (view1), does nearest key in view2 match i?
 
+Options:
+- --vit-layer N: extract CLS from intermediate layer N (arXiv:2604.23670)
+- --pos-bias-project: project out positional bias via PCA on noise (arXiv:2604.23670)
+
 Outputs:
 - Prints ok=true, passed=true|false and metrics.
 - Writes a JSON metrics file.
@@ -95,6 +99,59 @@ def _embed_backbone_cls(student: Any, x: torch.Tensor, spacing: torch.Tensor | N
     return F.normalize(cls.float(), p=2, dim=-1)
 
 
+@torch.no_grad()
+def _compute_pos_bias_dir(student: Any, device: torch.device, vit_layer: int, dim: int, img_size: int = 224, n_dirs: int = 1) -> np.ndarray:
+    """Compute positional bias direction via PCA on noise-image activations.
+
+    Per arXiv:2604.23670, DINO features contain a stable positional artifact
+    that interferes with geometric matching. This function computes the
+    dominant eigenvector of patch features from a noise image, which
+    captures the positional bias.
+
+    Returns a matrix of shape (dim, n_dirs) — the top n_dirs eigenvectors.
+    """
+    noise = torch.randn(1, 3, img_size, img_size, device=device)
+
+    vit = student.backbone
+    B = noise.size(0)
+    y = vit.patch_embed(noise)
+    y = y.flatten(2).transpose(1, 2)
+    cls_tokens = vit.cls_token.expand(B, -1, -1)
+    y = torch.cat([cls_tokens, y], dim=1)
+    y = y + vit.pos_embed
+    # Forward through blocks up to vit_layer
+    for i, blk in enumerate(vit.blocks):
+        y = blk(y)
+        if i == vit_layer:
+            break
+    # Use CLS token (shape: (1, dim))
+    cls_feat = y[:, 0]  # (1, dim)
+    # Center
+    cls_feat_centered = cls_feat - cls_feat.mean(dim=0, keepdim=True)
+    # SVD on single sample — equivalent to using it as the direction
+    # For more robust estimate, we use the feature itself (largest variance direction)
+    # Since we only have one noise sample, we use the centered feature as direction
+    u, s, vt = np.linalg.svd(cls_feat_centered.cpu().float().numpy(), full_matrices=False)
+    # u is (1, 1), take the right singular vector vt[0] as the direction
+    bias_dirs = vt[:n_dirs].T  # (dim, n_dirs)
+    # Normalize
+    bias_dirs = bias_dirs / np.linalg.norm(bias_dirs, axis=0, keepdims=True)
+    return bias_dirs
+
+
+def _project_bias(features: torch.Tensor, bias_dirs: torch.Tensor) -> torch.Tensor:
+    """Project features to null space of bias directions.
+
+    features: (N, D) — already L2-normalized or raw
+    bias_dirs: (D, K) — K orthonormal bias directions
+    Returns: (N, D) — features projected to null space, L2-normalized
+    """
+    # Projection: f' = f - (f @ bias_dirs) @ bias_dirs.T
+    proj = features.float() @ bias_dirs  # (N, K)
+    features_corrected = features.float() - proj @ bias_dirs.T  # (N, D)
+    return F.normalize(features_corrected, p=2, dim=-1)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Phase 5 label-free view-retrieval eval")
     ap.add_argument("--checkpoint", type=Path, required=True)
@@ -116,7 +173,11 @@ def main() -> int:
     )
     ap.add_argument("--scale-aware", action="store_true", help="Enable scale embedding (must match checkpoint)")
     ap.add_argument("--vit-layer", type=int, default=None, help="Extract CLS from this 0-indexed layer instead of final backbone output (arXiv:2604.23670)")
+    ap.add_argument("--pos-bias-project", action="store_true", help="Project out positional bias via PCA on noise-image activations (arXiv:2604.23670)")
     args = ap.parse_args()
+
+    if args.pos_bias_project and args.vit_layer is None:
+        raise SystemExit("--pos-bias-project requires --vit-layer (need intermediate features for bias computation)")
 
     if not args.checkpoint.exists():
         raise FileNotFoundError(f"Checkpoint not found: {args.checkpoint}")
@@ -170,6 +231,16 @@ def main() -> int:
     student.load_state_dict(payload["student"], strict=True)
     student.eval()
 
+    # Compute positional bias direction from noise image
+    bias_dirs = None
+    if args.pos_bias_project:
+        print(f"Computing positional bias direction from noise image (layer {args.vit_layer})...")
+        bias_dirs_np = _compute_pos_bias_dir(
+            student, device, args.vit_layer, mc.dim, img_size=img_size
+        )
+        bias_dirs = torch.from_numpy(bias_dirs_np).to(device)
+        print(f"  Bias direction computed: shape={bias_dirs.shape}")
+
     # Load rows, filter to val series
     val_set = _load_split_series_dirs(args.split_manifest, "val")
     all_rows = m._load_index_rows(args.index_csv)
@@ -222,8 +293,14 @@ def main() -> int:
         q = _embed_backbone_cls(student, x1, spacing=sp, vit_layer=layer)
         k = _embed_backbone_cls(student, x2, spacing=sp, vit_layer=layer)
 
-        Q_chunks.append(q.cpu())
-        K_chunks.append(k.cpu())
+        if bias_dirs is not None:
+            q = _project_bias(q.cpu(), bias_dirs.cpu())
+            k = _project_bias(k.cpu(), bias_dirs.cpu())
+            Q_chunks.append(q)
+            K_chunks.append(k)
+        else:
+            Q_chunks.append(q.cpu())
+            K_chunks.append(k.cpu())
 
     Q = torch.cat(Q_chunks, dim=0)  # (N, D)
     K = torch.cat(K_chunks, dim=0)  # (N, D)
@@ -251,7 +328,10 @@ def main() -> int:
 
     out = args.out
     if out is None:
-        out = args.checkpoint.parent / f"view_retrieval_step{step}_N{args.n}.json"
+        suffix = f"_layer{args.vit_layer}" if args.vit_layer is not None else ""
+        if args.pos_bias_project:
+            suffix += "_biasproj"
+        out = args.checkpoint.parent / f"view_retrieval_step{step}_N{args.n}{suffix}.json"
 
     metrics = {
         "kind": "phase5_view_retrieval",
