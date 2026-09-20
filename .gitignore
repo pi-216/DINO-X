@@ -28,6 +28,7 @@ data/**/*.jpg
 data/**/*.jpeg
 
 # Training runs and checkpoints
+runs
 runs/
 checkpoints/
 .worktrees/
