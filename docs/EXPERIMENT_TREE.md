@@ -24,9 +24,9 @@ Living workstream map — status tags: `[ACTIVE]`, `[CONCLUDED]`, `[TBD]`. Evide
 
 - **[ACTIVE] Tier 1 Release Packaging** (`tier1-release-packaging`)
   - Hepatic-vessel specialist: internal AUROC 0.9456 + **external CRLM validation** (slice 0.9413, patient 0.739, 197 new patients) — release-ready.
-  - LIDC specialist PASSES (AUROC 0.728) — ready for HF Hub.
+  - ~~LIDC specialist PASSES (AUROC 0.728) — ready for HF Hub.~~ **RETRACTED 2026-09-20** — 0.728 contaminated (transductive leakage + series-level split); see `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`. Re-run under patient-held-out split.
   - Colon specialist FAILS (AUROC 0.6529) — needs new hypothesis before re-run.
-  - Next: package hepatic-vessel + LIDC for HF Hub release.
+  - Next: package hepatic-vessel for HF Hub release. LIDC requires clean-split retrain before release consideration.
   - **Release-readiness gates defined (5-gate framework).** Hepatic-vessel v1: Gates 2 & 4 PASS; **Gate 1 (stupid-simple inference) CLOSED** via `zoo/predict.py` (`load_classifier` + `predict_proba`, trained −30/120 window baked in; verified on max395: real CRLM slices separate present 0.994 vs absent 0.068). Gate 3 (public repro) deferred to v1.1 (CRLM licensing). **Gate 5 PASS** (citation added, commit `2f4cf18`).
   - **Public-flip blockers: NONE remaining in code.** ~~`zoo` not pip-installable~~ CLOSED (`pyproject.toml`, commit `865a090` — `pip install .` verified, import resolves with no PYTHONPATH). ~~`requirements.txt` pins local ROCm wheels~~ CLOSED (`requirements-inference.txt`, portable, no machine-specific paths). ~~citation empty~~ CLOSED (commit `2f4cf18`). Gate 5 now PASS. **Ready to push updated card to HF + flip public.** GitHub issue still pending user approval.
   - **4th review (usability) addressed.** (1) **LoRA MERGED** into backbone — `backbone_merged.safetensors` uploaded; `load_classifier` now prefers merged weights (no `peft`, double-wrap footgun structurally impossible), adapter fallback kept for provenance; verified merged==unmerged prediction exactly. (2) CRLM prep-script gap documented (reviewer #2). (3) 2.5D-vs-2D cost now in the card quick-start (Δ −0.0002). (4) spacing operating range documented (train manifold x/y 0.57–0.98, thickness 0.8–8.0). (5) "proof-of-representation classifier; backbone is the value" framing in Intended Use.

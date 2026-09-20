@@ -17,7 +17,7 @@ Monitor the `msd-colon` run and wait for the `msd-hepatic-vessel` run to auto-la
 
 | Metric | Value | Gate | Verdict |
 |---|---|---|---|
-| LoRA AUROC (LIDC malignancy) | **0.728** | ≥ 0.720 | **PASS** |
+| LoRA AUROC (LIDC malignancy) | **0.728** | ≥ 0.720 | **RETRACTED** — transductive leakage + series-level split (see `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`) |
 | View retrieval (layer 9) | 37× | ≥ 40× | FAIL |
 | View retrieval (layer 12, default) | 31× | ≥ 40× | FAIL |
 | Training stability | No collapse, 289 img/s | — | GO |

@@ -113,9 +113,9 @@ Best checkpoint: step 25K (peak view retrieval 34×, pre-chaos entropy 6.19). Us
 
 ---
 
-## Phase 6: LIDC Single-Organ ViT-Base Specialist — `[ACTIVE]`
+## Phase 6: LIDC Single-Organ ViT-Base Specialist — `[CONTAMINATED — RESULT RETRACTED]`
 
-**Date:** 2026-07-22
+**Date:** 2026-07-22 · Retracted 2026-09-20 (see `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`)
 **Arm:** `lidc-specialist-vit-base-scale-aware` · Git commit: `863046ad`
 **Goal:** Break the pan-organ capacity-dilution ceiling by training a single-organ specialist on LIDC-IDRI only. ViT-Base (86M params, dim=768, depth=12, heads=12) with scale-aware embedding, same DINO + KoLeo(0.1) recipe that produced the 4-dataset ViT-Small AUROC 0.710.
 **Pre-registered gate:** PASS if LoRA AUROC ≥ 0.720 on LIDC malignancy classification AND view retrieval ratio ≥ 40× on LIDC-only eval (n=512). FAIL if AUROC ≤ 0.700 OR training entropy oscillates (adjacent-step swings > 2.0).
@@ -144,7 +144,7 @@ The ViT-Large pan-organ KILL confirmed capacity dilution as the primary failure 
 
 ### Verdict
 
-**PIVOT.** LoRA PASS, view retrieval FAIL (37x vs 40x). Single-organ specialist validated - best malignancy AUROC in project. View retrieval gap from DINO final-layer spatial correspondence destruction.
+**CONTAMINATED — RESULT RETRACTED (2026-09-20).** The 0.728 LoRA AUROC is retracted as a generalization claim: the backbone was pretrained on the full LIDC corpus (transductive leakage), the pretraining split was series-level not patient-level (LIDC has multi-series patients), and the +0.018 margin over baseline is within seed noise. The specialist hypothesis is **untested**, not disproven. Re-run under a patient-held-out pretraining split. See `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`. (Prior verdict was PIVOT — superseded.)
 
 ### Artifacts
 
