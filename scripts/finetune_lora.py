@@ -63,6 +63,8 @@ if str(_REPO_ROOT) not in sys.path:
 from zoo.arch import PatchViT
 from zoo.hub import load_model
 from zoo.peft import apply_lora, count_parameters, save_adapter
+from zoo.encoding import u16_to_hu
+from zoo.splits import assert_no_patient_leak
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,6 +87,7 @@ class LabeledRow:
     spacing_y: float = 1.0
     spacing_z: float = 1.0
     has_spacing: bool = False
+    patient_id: str | None = None
 
 
 @dataclass
@@ -134,6 +137,7 @@ def _load_csv(path: Path) -> list[LabeledRow]:
         has_spacing = all(
             c in reader.fieldnames for c in ("spacing_x", "spacing_y", "spacing_z")
         )
+        has_patient = "patient_id" in reader.fieldnames
 
         for i, row in enumerate(reader):
             try:
@@ -144,6 +148,8 @@ def _load_csv(path: Path) -> list[LabeledRow]:
                     spacing_y=float(row["spacing_y"]) if has_spacing else 1.0,
                     spacing_z=float(row["spacing_z"]) if has_spacing else 1.0,
                     has_spacing=has_spacing,
+                    patient_id=(row["patient_id"].strip() if has_patient
+                                and row.get("patient_id", "").strip() else None),
                 ))
             except (ValueError, KeyError) as e:
                 raise ValueError(f"Error parsing row {i + 1} of {path}: {e}") from e
@@ -216,7 +222,7 @@ class LabeledImageDataset(Dataset):
             arr = arr[:, :, 0]
 
         if self.input_format == "hu16_png":
-            hu = (arr - 32768.0) * 0.1
+            hu = u16_to_hu(arr)
             wmin = self.window_level - self.window_width / 2.0
             windowed = (hu - wmin) / max(self.window_width, 1.0)
             return np.clip(windowed, 0.0, 1.0)
@@ -646,6 +652,27 @@ def main(argv: list[str] | None = None) -> None:
     train_rows = _load_csv(args.train_csv)
     val_rows = _load_csv(args.val_csv)
     logger.info("Train: %d samples, Val: %d samples", len(train_rows), len(val_rows))
+
+    # ── Patient-level leak guard ─────────────────────────────────────────
+    # If the label CSVs carry a patient_id column, hard-fail on any patient
+    # appearing in BOTH train and val. A patient with multiple scans (multi-
+    # phase CT) can otherwise leak identity across the split and silently
+    # inflate held-out metrics.
+    if train_rows and val_rows and (train_rows[0].patient_id is not None
+                                    or val_rows[0].patient_id is not None):
+        train_pids = {r.patient_id for r in train_rows if r.patient_id is not None}
+        val_pids = {r.patient_id for r in val_rows if r.patient_id is not None}
+        if not train_pids or not val_pids:
+            logger.warning(
+                "patient_id column present but empty on one side — "
+                "cannot assert patient-level disjointness; proceeding"
+            )
+        else:
+            assert_no_patient_leak(train_pids, val_pids)
+            logger.info(
+                "Patient-level split verified: %d train / %d val patients, "
+                "0 overlap", len(train_pids), len(val_pids),
+            )
 
     # Spacing warning for scale-aware backbones
     if scale_aware and not train_rows[0].has_spacing:

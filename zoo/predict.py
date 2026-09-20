@@ -40,6 +40,7 @@ import torch
 import torch.nn as nn
 
 from zoo.hub import load_model
+from zoo.encoding import u16_to_hu
 
 logger = logging.getLogger(__name__)
 
@@ -216,8 +217,8 @@ def _to_hu(arr: np.ndarray, input_format: str) -> np.ndarray:
     if input_format == "hu_float":
         return arr.astype(np.float32)
     if input_format == "hu16_png":
-        # 16-bit PNG encoding: HU = (uint16 - 32768) * 0.1
-        return (arr.astype(np.float32) - 32768.0) * 0.1
+        # 16-bit PNG encoding: HU = (uint16 - 32768) * 0.1 (canonical, see zoo.encoding)
+        return u16_to_hu(arr)
     if input_format == "windowed_float":
         return arr.astype(np.float32)
     raise ValueError(

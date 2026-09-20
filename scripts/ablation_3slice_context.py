@@ -30,6 +30,7 @@ from torchvision import transforms
 
 from zoo.hub import load_model
 from zoo.peft import load_adapter
+from zoo.encoding import u16_to_hu
 
 MEAN = (0.485, 0.456, 0.406)
 STD = (0.229, 0.224, 0.225)
@@ -61,7 +62,7 @@ class CtxDataset(Dataset):
         arr = np.array(Image.open(path), dtype=np.float32)
         if arr.ndim == 3:
             arr = arr[:, :, 0]
-        hu = (arr - 32768.0) * 0.1
+        hu = u16_to_hu(arr)
         wmin = self.level - self.width / 2.0
         return np.clip((hu - wmin) / max(self.width, 1.0), 0.0, 1.0)
 

@@ -28,6 +28,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
 from zoo.hub import load_model
+from zoo.encoding import u16_to_hu
 
 MEAN = (0.485, 0.456, 0.406)
 STD = (0.229, 0.224, 0.225)
@@ -52,7 +53,7 @@ class FeatDataset(Dataset):
         arr = np.array(Image.open(p), dtype=np.float32)
         if arr.ndim == 3:
             arr = arr[:, :, 0]
-        hu = (arr - 32768.0) * 0.1
+        hu = u16_to_hu(arr)
         wmin = self.level - self.width / 2.0
         w = np.clip((hu - wmin) / max(self.width, 1.0), 0.0, 1.0)
         x = np.stack([w, w, w], axis=0)  # duplicated slice = the shipped path

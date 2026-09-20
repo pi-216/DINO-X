@@ -36,6 +36,7 @@ if str(_REPO_ROOT) not in sys.path:
 from zoo.arch import PatchViT
 from zoo.hub import load_model
 from zoo.peft import load_adapter
+from zoo.encoding import u16_to_hu
 
 
 class EvalDataset(Dataset):
@@ -67,7 +68,7 @@ class EvalDataset(Dataset):
         arr = np.array(img, dtype=np.float32)
         if arr.ndim == 3:
             arr = arr[:, :, 0]
-        hu = (arr - 32768.0) * 0.1
+        hu = u16_to_hu(arr)
         wmin = self.window_level - self.window_width / 2.0
         windowed = (hu - wmin) / max(self.window_width, 1.0)
         return np.clip(windowed, 0.0, 1.0)

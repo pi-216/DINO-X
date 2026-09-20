@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import random
+import sys
 from pathlib import Path
 
 
@@ -25,7 +26,11 @@ except Exception:  # pragma: no cover
     _need("pillow")
 
 
-HU_OFFSET = 32768.0
+# Canonical decode lives in zoo.encoding; import rather than inline.
+_REPO_ROOT = str(Path(__file__).resolve().parents[2])
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from zoo.encoding import u16_to_hu  # noqa: E402
 
 
 def _window_hu_to_u8(img_hu: "np.ndarray", level: float, width: float) -> "np.ndarray":
@@ -43,7 +48,7 @@ def _preview_rgb(p: Path) -> Image.Image:
         if arr.dtype != np.uint16:
             arr = arr.astype(np.uint16)
         # Canonical DINO-X decode: HU = (u16 - 32768) * 0.1 (encode is round(HU*10)+32768).
-        hu = (arr.astype(np.float32) - HU_OFFSET) * 0.1
+        hu = u16_to_hu(arr)
         u8 = _window_hu_to_u8(hu, level=-600.0, width=1500.0)  # lung-ish preview
         return Image.fromarray(u8, mode="L").convert("RGB")
     return im.convert("RGB")
