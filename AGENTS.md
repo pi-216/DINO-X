@@ -10,7 +10,8 @@ AI agent entry point. Read these docs in order before touching anything. The gov
 2. **`docs/EXPERIMENT_TREE.md`** — Shallow workstream map with status tags ([ACTIVE]/[CONCLUDED]/[TBD]).
 3. **`docs/EXPERIMENTS_AND_RESULTS.md`** — Permanent ledger: all empirical findings with pre-registered gates, adversarial pass checklists, and GO/PIVOT/PARK/KILL verdicts.
 4. **This file (`AGENTS.md`)** — Critical rules and project-specific conventions.
-5. **Load the skills** — The source of truth for *how* experiments run here lives in the skills, not in repo governance docs. Load `scientific-experiment-structure` (data/measurement design gates, adversarial pass, leakage rules) and `autonomous-research-execution` (orchestration) before planning or running any experiment. The skills evolve faster than any per-repo doc; follow them over `docs/experiment-structure.md`, which may be stale.
+5. **`docs/git-workflow.md`** — Branch-per-model strategy, the merge-back rule, and artifact routing (where everything lives in git vs NAS/HF).
+6. **Load the skills** — The source of truth for *how* experiments run here lives in the skills, not in repo governance docs. Load `scientific-experiment-structure` (data/measurement design gates, adversarial pass, leakage rules) and `autonomous-research-execution` (orchestration) before planning or running any experiment. The skills evolve faster than any per-repo doc; follow them over `docs/experiment-structure.md`, which may be stale.
 
 Documentation lives in `docs/`. Repo governance: `docs/experiment-structure.md` (may lag the skills — use as reference, not authority).
 
@@ -104,4 +105,6 @@ Configs in `configs/` (e.g., `panorgan_ct_vits.yaml`) are staging specs, not run
 - `zoo/registry.py` — YAML dataset catalog
 - `zoo/manifest.py` — Parquet per-slice metadata
 - `zoo/encode.py` — Zero-preprocessing inference API
+- `zoo/encoding.py` — Canonical hu16 encode/decode (`hu_to_u16` / `u16_to_hu`) — single source of truth, never inline the formula
+- `zoo/splits.py` — Patient-identity resolution (`read_patient_id`) + patient-level split helpers (`patient_split`, `assert_no_series_leak`, `assert_no_patient_leak`)
 - `zoo/card.py` / `zoo/publish.py` — HF model card generation + publishing
