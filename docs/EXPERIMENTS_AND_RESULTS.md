@@ -805,6 +805,50 @@ Full table: 37+ runs in `docs/experiments.csv`. Key lesson: ViT-Large Golden Zon
 
 ---
 
+## Phase 10: Release #2 — LIDC Specialist, Patient-Held-Out Retrain — `[ACTIVE]`
+
+**Date:** 2026-10-01
+**Arm:** `lidc-specialist-vit-base-patient-holdout`
+**Goal:** Re-test the single-organ specialist hypothesis on LIDC honestly. Phase 6's 0.728 was
+retracted (transductive leakage + series-level pretraining split); the hypothesis is **untested**,
+not disproven. Pretrain with the LoRA-eval patients held out entirely, then evaluate only on them.
+
+**Pre-registered gate (stated BEFORE launch):**
+- LoRA test AUROC, **3 seeds** (42/43/44), on the patient-held-out test patients only.
+- **PASS** if mean test AUROC ≥ 0.720 **AND** the 95% CI lower bound > 0.710 (the 4-dataset
+  baseline) — i.e. the margin is not seed noise.
+- **PIVOT** if mean ≥ 0.710 but the margin is within seed noise (no measurable specialist advantage).
+- **FAIL** if mean < 0.710.
+- Framing: **internal-only** — LIDC has no identified cross-institutional held-out set (Gate 0 ceiling).
+
+### Design
+
+- **Split** (`scripts/preprocessing/build_lidc_patient_holdout_split.py`, built 2026-10-01):
+  - LoRA-eval patients (malignancy val+test) = **239 patients / 243 series** held out of
+    pretraining entirely (23.8% of the corpus).
+  - Remaining corpus split **by patient**: **698 train series (694 patients) / 77 val series
+    (77 patients)**.
+  - 3 series unattributed (no DICOM PatientID) → excluded, fail-closed.
+  - Leak assertions (`assert_no_patient_leak`, `assert_no_series_leak`, holdout-disjoint) all pass.
+  - Index `data/mvp/lidc_only_t2_patientholdout.csv` (124,279 slices); manifest
+    `data/mvp/split_manifest_lidc_patientholdout.json` (`group_key=patient_id`).
+- **Model:** ViT-Base (86M), scale-aware. Recipe identical to Phase 6 for comparability:
+  `--lr 2e-5 --center-momentum 0.999 --koleo-weight 0.1 --z-stride 3 --diverse-batches
+  --batch-size 4 --accumulation-steps 64 --grad-checkpoint --max-steps 50000 --ckpt-keep-last 0`.
+- **LoRA:** fine-tune on `malignancy_train` (554 patients), select on `malignancy_val` (118),
+  report on `malignancy_test` (121) — none seen by the backbone.
+- **Hardware:** queued on the 4090 (`game`) via the GPU scheduler.
+
+### Empirical Evidence
+
+_Pending — job queued; not yet launched._
+
+### Verdict
+
+**PENDING.**
+
+---
+
 ## Release #1: dinox-ct-msd-hepatic-vessel-vit-base-v1 — `[CONCLUDED — SHIPPED]`
 
 **Date:** Sep 2026 · **Model:** `dinox-ct-msd-hepatic-vessel-vit-base-v1`

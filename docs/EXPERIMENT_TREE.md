@@ -8,8 +8,9 @@ Living workstream map — status tags: `[ACTIVE]`, `[CONCLUDED]`, `[TBD]`. Evide
 
 - **[ACTIVE] Release #2 — LIDC Clean-Split Retrain** (`lidc-specialist-vit-base-patient-holdout`)
   - **Question (from the 2026-09-20 retraction):** does the single-organ specialist recipe hold when the backbone never sees the LoRA-eval patients? Phase 6's 0.728 was retracted (transductive leakage + series-level pretraining split), so the specialist hypothesis is **untested**, not disproven.
-  - **Pre-registered gate:** multi-seed LoRA AUROC on patient-held-out patients ≥ the 0.710 baseline, with a margin outside seed noise (CI reported). LIDC has no external held-out set, so this is an **internal-only** claim.
-  - **Status:** patient-level split manifest + gate being pre-registered; retrain queued for max395 (~12.5h, ViT-Base, recipe unchanged from Phase 6).
+  - **Pre-registered gate (before launch):** 3-seed LoRA test AUROC on patient-held-out patients only. PASS if mean ≥ 0.720 AND 95% CI lower bound > 0.710 baseline (margin outside seed noise); PIVOT if mean ≥ 0.710 but within noise; FAIL if < 0.710. Internal-only — LIDC has no external held-out set.
+  - **Split (built 2026-10-01):** LoRA-eval patients (malignancy val+test) = 239 patients / 243 series held out entirely; remaining corpus split by patient → 698 train / 77 val series. Index `data/mvp/lidc_only_t2_patientholdout.csv`; manifest `data/mvp/split_manifest_lidc_patientholdout.json`. Builder: `scripts/preprocessing/build_lidc_patient_holdout_split.py`.
+  - **Status:** gate + split committed (no launch yet); pretrain queued on the **4090 (`game`)** via the GPU scheduler behind the current queue, ViT-Base, recipe unchanged from Phase 6.
   - **Ref:** `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`
 
 ---
