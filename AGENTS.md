@@ -13,6 +13,10 @@ AI agent entry point. Read these docs in order before touching anything. The gov
 5. **`docs/git-workflow.md`** — Branch-per-model strategy, the merge-back rule, and artifact routing (where everything lives in git vs NAS/HF).
 6. **Load the skills** — The source of truth for *how* experiments run here lives in the skills, not in repo governance docs. Load `scientific-experiment-structure` (data/measurement design gates, adversarial pass, leakage rules) and `autonomous-research-execution` (orchestration) before planning or running any experiment. The skills evolve faster than any per-repo doc; follow them over `docs/experiment-structure.md`, which may be stale.
 
+**Governance proposals (under review, not yet standing rules):**
+- **`docs/data-selection.md`** — What data feeds the model; when a model may ship (external-validation floor).
+- **`docs/base-model-evaluation.md`** — How a self-supervised base model is judged (transfer utility over a baseline ladder, on a fixed probe battery).
+
 Documentation lives in `docs/`. Repo governance: `docs/experiment-structure.md` (may lag the skills — use as reference, not authority).
 
 ---
