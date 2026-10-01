@@ -1,62 +1,63 @@
 # Project Status — DINO-X
 
-**Last updated:** 2026-07-24
-**Phase / status:** Phase 9 ACTIVE — Single-Organ Specialist Expansion
+**Last updated:** 2026-10-01
+**Phase / status:** Phase 10 ACTIVE — Release #2: LIDC clean-split retrain
 
 ## Current state
 
-Phase 8 concluded that view retrieval and spacing metrics are invalid gates for single-organ models. Phase 9 applies the proven Phase 6 LIDC-specialist recipe to `msd-colon` and `msd-hepatic-vessel` to verify that the single-organ strategy generalizes and avoids pan-organ capacity dilution.
+**Release #1 shipped.** The hepatic-vessel specialist
+(`dinox-ct-msd-hepatic-vessel-vit-base-v1`) is public on the HF Hub with a full
+evidence envelope, an external held-out validation on TCIA CRLM (slice AUROC
+**0.9413**, 197 patients), and a published launch post. The release machinery is
+proven end-to-end and reusable: `scripts/release/build_envelope.py`,
+`releases/ENVELOPE_TEMPLATE.md`, `scripts/release/generate_data_provenance.py`.
 
-The `msd-colon` pretraining run is actively running on `max395` (job `dc0369eac513`). The `msd-hepatic-vessel` job (`c6fc88347c57`) is queued next on the GPU scheduler, with an autonomous Hermes cron job (`dino-x-hepatic-launcher`) polling to launch it automatically when the colon run completes.
+**Release #2 is the LIDC specialist — and it is not a repackage.** The 0.728 result
+was **retracted 2026-09-20** (transductive leakage: the backbone was pretrained on
+the very patients later used for LoRA evaluation, plus a series-level pretraining
+split). Release #2 therefore requires a **patient-held-out retrain** — the backbone
+must never see the LoRA-eval patients. The corrected design is fixed in
+`docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`.
+
+The colon specialist remains `[CONCLUDED — FAIL]` (AUROC 0.6529) and is **blocked on
+a new hypothesis** — per governance it is not launchable work.
 
 ## Immediate next action
 
-Monitor the `msd-colon` run and wait for the `msd-hepatic-vessel` run to auto-launch. Evaluate both against LoRA baselines upon completion.
+1. Build a **patient-level LIDC split manifest** (`zoo/splits.py`: resolve
+   series → PatientID, hold out ~20% of patients, `assert_no_patient_leak`) and
+   **pre-register the multi-seed AUROC gate with a CI** before launching.
+2. Launch the clean-split pretrain on **max395 via the GPU scheduler**
+   (~12.5h, ViT-Base, recipe unchanged from Phase 6).
+3. On completion: LoRA fine-tune on the train patients, evaluate **only** on the
+   held-out patients, then run the release machinery (envelope → gates → HF).
 
 ## Headline result
 
 | Metric | Value | Gate | Verdict |
 |---|---|---|---|
-| LoRA AUROC (LIDC malignancy) | **0.728** | ≥ 0.720 | **RETRACTED** — transductive leakage + series-level split (see `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`) |
-| View retrieval (layer 9) | 37× | ≥ 40× | FAIL |
-| View retrieval (layer 12, default) | 31× | ≥ 40× | FAIL |
-| Training stability | No collapse, 289 img/s | — | GO |
-| Baseline (ViT-Small 4-dataset) | AUROC 0.710 | — | — |
+| Hepatic-vessel external slice AUROC (TCIA CRLM) | **0.9413** | ≥ 0.70 | **GO — RELEASED** |
+| Hepatic-vessel Spearman (vessel-richness, score) | **0.527** (p≈1e-15) | — | GO |
+| LIDC malignancy AUROC | 0.728 | ≥ 0.720 | **RETRACTED** — leakage; re-run under patient-held-out split |
+| Colon specialist AUROC | 0.6529 | ≥ 0.70 | FAIL — new hypothesis required |
+| ViT-Large pan-organ view retrieval | 34× (step 25K) | 100× | KILL — objective, not model size |
+| Baseline (ViT-Small 4-dataset) | 0.710 | — | reference to beat |
 
-## Next action
+## Next action (queue)
 
-1. **Scale to other organs** — apply the proven LIDC-specialist recipe to cq500 (brain), pancreas-ct, etc.
-2. **Many-to-many matching** — relax 1-to-1 in view retrieval eval (arXiv:2604.23670)
-3. **Cross-Modality Expansion** — MRI (`dinox-mri-vit-small`) and X-ray (`dinox-xray-vit-small`) models.
-4. **HF Hub Release** — publish `dinox-ct-vit-small-v1` model card + safetensors.
-5. **Adversarial Pass Retrospective** — audit all GO verdicts against the 4-question checklist.
-
-## Headline result
-
-| Metric | Value | Verdict |
-|---|---|---|
-| ViT-Large best view retrieval | 34× (step 25K) | FAIL — gate was 100× |
-| Scanner fingerprinting (dataset AUC) | 0.981 | Architectural failure confirmed |
-| Capacity dilution (colon↔vessel cosine) | 0.962 | Same as ViT-Small |
-| Scale embedding proven | R² 0.980, counterfactual 0.444 | GO — carries forward |
-| Memory mitigation solved | 46 img/s, 67h to 50K, no OOM | GO — proven recipe for Strix Halo |
-| ViT-Small best AUROC (4-dataset) | 0.710 LIDC malignancy | Best overall result |
-| arXiv 2607.16317 validation | Deterministic entropy estimators collapse by construction | Confirms teacher entropy was wrong metric |
-
-## Immediate next action
-
-The pan-organ pretraining objective (DINO + KoLeo) is structurally wrong. Three paths:
-
-1. **Single-organ specialists** — Train scale-aware ViT-Base on organ-specific datasets (LIDC, cq500). Proven recipe, guaranteed to work. Lowest risk.
-2. **Objective redesign** — Replace DINO with MAE (masked autoencoder) or add adversarial domain adaptation (gradient reversal on dataset ID). Breaks the scanner-fingerprinting deadlock. Medium risk.
-3. **MC-Dropout uncertainty** — Replace teacher entropy with sampling-based uncertainty as the primary health metric. Addresses the monitoring failure but doesn't fix the objective. Complements either path.
-
-See `docs/DISCONTINUATION_NOTICE_5dataset-phase5-large-bs256-v2.md` for full analysis.
+1. **Release #2 — LIDC clean-split retrain** (above).
+2. **Colon** — new hypothesis needed before any re-run (organ-specific HU window,
+   more patients, or a different task formulation).
+3. **Tier 2 expansion** — pancreas-CT and CQ500 (data ready).
+4. **Many-to-many view retrieval matching** — relax the 1-to-1 rule
+   (arXiv:2604.23670).
+5. **Cross-modality** — MRI (`dinox-mri-*`, UKBOB) and X-ray.
 
 ## Artifacts
 
-- `docs/DISCONTINUATION_NOTICE_5dataset-phase5-large-bs256-v2.md` — mandatory KILL artifact
-- `runs/20260719_042301_5dataset-phase5-large-bs256-v2/` — full 50K run with 10 checkpoints
-- `results/panorgan_step35000.json` — pre-collapse eval
-- `results/panorgan_step50000.json` — zombie-phase eval
-- Best checkpoint: step 25K at `runs/20260719_042301_5dataset-phase5-large-bs256-v2/checkpoint_00025000.pth`
+- `releases/dinox-ct-msd-hepatic-vessel-vit-base-v1/` — Release #1 evidence envelope
+- `releases/ENVELOPE_TEMPLATE.md` — reusable release machinery
+- `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md` — Release #2 design
+- `docs/DISCONTINUATION_NOTICE_5dataset-phase5-large-bs256-v2.md` — Phase 5 KILL artifact
+- `docs/EXPERIMENTS_AND_RESULTS.md` — permanent ledger
+- `docs/EXPERIMENT_TREE.md` — workstream map

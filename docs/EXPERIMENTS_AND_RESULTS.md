@@ -7,7 +7,7 @@ Provenance files: `experiments/dino-x-v1/provenance_{arm-slug}.yaml`.
 
 ---
 
-## Phase 5: ViT-Large Pan-Organ Pretraining — `[ACTIVE]`
+## Phase 5: ViT-Large Pan-Organ Pretraining — `[CONCLUDED — KILL]`
 
 **Date:** 2026-05-10 (4 aborts May 10–11)
 **Goal:** Overcome ViT-Small capacity dilution by scaling to ViT-Large (923M params, dim=1024, depth=24, heads=16) on the 5-dataset pan-organ corpus.
@@ -155,7 +155,7 @@ The ViT-Large pan-organ KILL confirmed capacity dilution as the primary failure 
 
 ---
 
-## Phase 7: Positional Bias Projection for View Retrieval — `[ACTIVE]`
+## Phase 7: Positional Bias Projection for View Retrieval — `[CONCLUDED — KILL]`
 
 **Date:** 2026-07-24
 **Arm:** `positional-bias-projection` · Git commit: `22f0e5d`
@@ -187,7 +187,7 @@ The ViT-Large pan-organ KILL confirmed capacity dilution as the primary failure 
 
 ---
 
-## Phase 8: Replace View Retrieval Gate for Single-Organ Models — `[ACTIVE]`
+## Phase 8: Replace View Retrieval Gate for Single-Organ Models — `[CONCLUDED — PIVOT]`
 
 **Date:** 2026-07-24
 **Arm:** `replace-view-retrieval-gate` · Git commit: `22f0e5d`
@@ -226,34 +226,7 @@ The ViT-Large pan-organ KILL confirmed capacity dilution as the primary failure 
 
 ---
 
-## Phase 9: Single-Organ Specialist Expansion — `[ACTIVE]`
-
-**Date:** 2026-07-24
-**Arm:** `single-organ-specialists-expansion` · Git commit: `647efd9`
-**Goal:** Apply the proven Phase 6 recipe (ViT-Base, single-organ, scale-aware) to the remaining datasets in the corpus (`msd-colon` and `msd-hepatic-vessel`) to verify the approach generalizes.
-**Pre-registered gate:** PASS if the models train stably without entropy collapse, and their LoRA fine-tuned adapters demonstrate clinically useful AUROC on their respective organ-specific tasks. (View retrieval and spacing metrics are explicitly excluded as kill gates per Phase 8 governance).
-
-### Design
-
-- **Models:** ViT-Base (86M params, dim=768, depth=12, heads=12)
-- **Data:**
-  - `msd-colon`: 38,373 slices, 116 train / 10 val series
-  - `msd-hepatic-vessel`: 48,021 slices, 275 train / 28 val series
-- **Training recipe:** Identical to Phase 6 LIDC specialist: `--scale-aware --lr 2e-5 --center-momentum 0.999 --koleo-weight 0.1 --z-stride 3 --diverse-batches --batch-size 4 --accumulation-steps 64 --grad-checkpoint`
-- **Evaluation:** Single-organ LoRA fine-tuning benchmarks.
-
-### Empirical Evidence
-
-_Pending — preparing GPU jobs._
-
-### Verdict
-
-**PENDING.**
-
-### Artifacts
-
-- `data/mvp/msd_colon_only_t2.csv` + manifest
-- `data/mvp/msd_hepatic_vessel_only_t2.csv` + manifest
+> **Superseded (2026-10-01 reconciliation).** This arm concluded `[CONCLUDED — PIVOT]` — see the Phase 9 entry dated 2026-08-31 below. The `PENDING` stub that sat here was a duplicate that contradicted the ledger and has been removed.
 
 ---
 
@@ -715,8 +688,6 @@ Full table: 37+ runs in `docs/experiments.csv`. Key lesson: ViT-Large Golden Zon
 
 ---
 
----
-
 ## Phase 9: Single-Organ Specialist Expansion — `[CONCLUDED — PIVOT]`
 
 **Date:** 2026-08-31
@@ -765,7 +736,7 @@ Full table: 37+ runs in `docs/experiments.csv`. Key lesson: ViT-Large Golden Zon
 
 **What survives:**
 1. **Hepatic-vessel specialist** — Tier 1 release candidate. AUROC 0.9456, 87% accuracy, stable training.
-2. **LIDC specialist** — Tier 1 release candidate (previous PASS, AUROC 0.728).
+2. **LIDC specialist** — ~~Tier 1 release candidate (previous PASS, AUROC 0.728)~~ **RETRACTED 2026-09-20** (transductive leakage + series-level split); re-run under a patient-held-out split = Release #2.
 3. **MSD label extraction pipeline** — `extract_msd_labels.py` reusable for future organs.
 
 **What changes:**
@@ -834,4 +805,22 @@ Full table: 37+ runs in `docs/experiments.csv`. Key lesson: ViT-Large Golden Zon
 
 ---
 
-*Ledger last updated: 2026-09-02. See EXPERIMENT_TREE.md for workstream map and PROJECT_STATUS.md for current state.*
+## Release #1: dinox-ct-msd-hepatic-vessel-vit-base-v1 — `[CONCLUDED — SHIPPED]`
+
+**Date:** Sep 2026 · **Model:** `dinox-ct-msd-hepatic-vessel-vit-base-v1`
+**Backbone:** scale-aware ViT-Base (86M), self-supervised on MSD Hepatic-Vessel CT;
+LoRA fine-tuned for hepatic/portal vessel detection.
+
+Shipped with a complete **evidence envelope**
+(`releases/dinox-ct-msd-hepatic-vessel-vit-base-v1/`): decision trail, training recipe,
+adversarial pass, external CRLM validation, published negative results, known limits,
+and a mechanical reproduction script. Public on the HF Hub; launch post at
+`huggingface.co/blog/timlawrenz/dino-x-a-ct-organ-specialist-that-ships-the-eviden`.
+Source branch `main` (backbone/adapter `3880452`, external validation `d1aab1c`).
+
+This is the reference pattern for Release #2 — the machinery is reusable
+(`releases/ENVELOPE_TEMPLATE.md`, `scripts/release/build_envelope.py`).
+
+---
+
+*Ledger last updated: 2026-10-01 (reconciled with EXPERIMENT_TREE.md + PROJECT_STATUS.md). See EXPERIMENT_TREE.md for the workstream map and PROJECT_STATUS.md for current state.*

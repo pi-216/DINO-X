@@ -6,13 +6,23 @@ Living workstream map — status tags: `[ACTIVE]`, `[CONCLUDED]`, `[TBD]`. Evide
 
 ## Active
 
+- **[ACTIVE] Release #2 — LIDC Clean-Split Retrain** (`lidc-specialist-vit-base-patient-holdout`)
+  - **Question (from the 2026-09-20 retraction):** does the single-organ specialist recipe hold when the backbone never sees the LoRA-eval patients? Phase 6's 0.728 was retracted (transductive leakage + series-level pretraining split), so the specialist hypothesis is **untested**, not disproven.
+  - **Pre-registered gate:** multi-seed LoRA AUROC on patient-held-out patients ≥ the 0.710 baseline, with a margin outside seed noise (CI reported). LIDC has no external held-out set, so this is an **internal-only** claim.
+  - **Status:** patient-level split manifest + gate being pre-registered; retrain queued for max395 (~12.5h, ViT-Base, recipe unchanged from Phase 6).
+  - **Ref:** `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`
+
+---
+
+## Concluded — recent
+
 - **[CONCLUDED — GO] 3-Slice Context Ablation** (`abl-3slice-context`)
   - **Question (from external review):** does true adjacent-slice context `[z−1,z,z+1]` beat the shipped single-slice duplication `[z,z,z]` on external CRLM?
   - **Result (17,639 slices, pre-registered |Δ|≤0.01 gate):** dup AUROC **0.941304** / ctx AUROC **0.941131**, **Δ = −0.00017**. Single-slice duplication is empirically **sufficient** — true 3-slice context gives no measurable gain (and reproduces the headline 0.9413 exactly in a fresh process).
   - **Verdict:** the released `predict_proba` single-slice path is a *validated design choice*, not an accuracy-losing shortcut. LoRA fine-tuning on duplicated slices adapted the head to that distribution.
   - **Side findings:** (1) independent exact reproduction of the external 0.9413; (2) root-caused 9 pre-existing test failures to a stray `peft.py` (old `zoo/peft.py` copy) shadowing the real `peft` package in the max395 repo root — moved aside.
   - Script: `scripts/ablation_3slice_context.py`; result: `results/ablation_3slice_context.json`; GPU lease `dinox-3slice-abl-v1` (released).
-  - Git commit: pending
+  - Git commit: `f26b005`
 
 - **[CONCLUDED — GO] Frozen-Backbone Window-Robustness Probe** (`abl-frozen-probe`)
   - **Question (3rd external review):** is the narrow −30/120 fine-tune window a "massive domain shift" the frozen backbone can't interpret, making LoRA "structurally questionable"?
@@ -20,21 +30,17 @@ Living workstream map — status tags: `[ACTIVE]`, `[CONCLUDED]`, `[TBD]`. Evide
   - **Result:** frozen backbone alone AUROC **0.9068** vs null 0.4467. The backbone's features are window-robust WITHOUT adaptation; LoRA+head lifts it to 0.9413.
   - **Verdict:** reviewer's structural claim REFUTED by data. The narrow window is not a blocker. This is the strongest evidence the model is not a preprocessing artifact.
   - Script: `scripts/ablation_frozen_probe.py`; result: `results/ablation_frozen_probe.json`; lease `dinox-frozen-probe-v1` (released).
-  - Git commit: pending
+  - Git commit: `f26b005`
 
-- **[ACTIVE] Tier 1 Release Packaging** (`tier1-release-packaging`)
-  - Hepatic-vessel specialist: internal AUROC 0.9456 + **external CRLM validation** (slice 0.9413, patient 0.739, 197 new patients) — release-ready.
-  - ~~LIDC specialist PASSES (AUROC 0.728) — ready for HF Hub.~~ **RETRACTED 2026-09-20** — 0.728 contaminated (transductive leakage + series-level split); see `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`. Re-run under patient-held-out split.
+- **[CONCLUDED — GO] Tier 1 Release Packaging** (`tier1-release-packaging`)
+  - Hepatic-vessel specialist: internal AUROC 0.9456 + **external CRLM validation** (slice 0.9413, patient 0.739, 197 new patients) — **RELEASED to public HF Hub** and **launch post published** (huggingface.co/blog/timlawrenz/dino-x-a-ct-organ-specialist-that-ships-the-eviden). 4 external review rounds + internal red-team addressed. First-publish traction: 25 downloads + 1 like. Thumbnail + polished copy live (de-dashed, KILL named, install-trap fixed; `<Widget>` stripped by HF — Models-mentioned rail covers linking).
+  - ~~LIDC specialist PASSES (AUROC 0.728) — ready for HF Hub.~~ **RETRACTED 2026-09-20** — 0.728 contaminated (transductive leakage + series-level split); see `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`. Re-run under patient-held-out split → Release #2 (see Active).
   - Colon specialist FAILS (AUROC 0.6529) — needs new hypothesis before re-run.
-  - Next: package hepatic-vessel for HF Hub release. LIDC requires clean-split retrain before release consideration.
   - **Release-readiness gates defined (5-gate framework).** Hepatic-vessel v1: Gates 2 & 4 PASS; **Gate 1 (stupid-simple inference) CLOSED** via `zoo/predict.py` (`load_classifier` + `predict_proba`, trained −30/120 window baked in; verified on max395: real CRLM slices separate present 0.994 vs absent 0.068). Gate 3 (public repro) deferred to v1.1 (CRLM licensing). **Gate 5 PASS** (citation added, commit `2f4cf18`).
-  - **Public-flip blockers: NONE remaining in code.** ~~`zoo` not pip-installable~~ CLOSED (`pyproject.toml`, commit `865a090` — `pip install .` verified, import resolves with no PYTHONPATH). ~~`requirements.txt` pins local ROCm wheels~~ CLOSED (`requirements-inference.txt`, portable, no machine-specific paths). ~~citation empty~~ CLOSED (commit `2f4cf18`). Gate 5 now PASS. **Ready to push updated card to HF + flip public.** GitHub issue still pending user approval.
-  - **4th review (usability) addressed.** (1) **LoRA MERGED** into backbone — `backbone_merged.safetensors` uploaded; `load_classifier` now prefers merged weights (no `peft`, double-wrap footgun structurally impossible), adapter fallback kept for provenance; verified merged==unmerged prediction exactly. (2) CRLM prep-script gap documented (reviewer #2). (3) 2.5D-vs-2D cost now in the card quick-start (Δ −0.0002). (4) spacing operating range documented (train manifold x/y 0.57–0.98, thickness 0.8–8.0). (5) "proof-of-representation classifier; backbone is the value" framing in Intended Use.
-  - **RELEASED to public HF Hub** and **launch post published** (huggingface.co/blog/timlawrenz/dino-x-a-ct-organ-specialist-that-ships-the-eviden). 4 external review rounds + internal red-team addressed. First-publish traction: 25 downloads + 1 like. Thumbnail + polished copy live (de-dashed, KILL named, install-trap fixed; `<Widget>` stripped by HF — Models-mentioned rail covers linking).
-  - **Launch drafts written** (`releases/launch-drafts/`): `hf-blog-post.md` (HF blog, technical launch) + `lawrenz-com-brief.md` (six-part method essay, handoff to lawrenz.com profile). Sequencing: HF first for reach, lawrenz.com essay after — they don't compete ("use it" vs "why you can believe it").
+  - **Public-flip blockers: NONE remaining in code.** ~~`zoo` not pip-installable~~ CLOSED (`pyproject.toml`, commit `865a090`). ~~`requirements.txt` pins local ROCm wheels~~ CLOSED (`requirements-inference.txt`, portable). ~~citation empty~~ CLOSED (commit `2f4cf18`).
+  - **4th review (usability) addressed.** (1) **LoRA MERGED** into backbone — `backbone_merged.safetensors` uploaded; `load_classifier` prefers merged weights (no `peft`, double-wrap footgun structurally impossible), adapter fallback kept for provenance; verified merged==unmerged prediction exactly. (2) CRLM prep-script gap documented. (3) 2.5D-vs-2D cost in the card quick-start (Δ −0.0002). (4) spacing operating range documented (x/y 0.57–0.98, thickness 0.8–8.0). (5) "proof-of-representation classifier; backbone is the value" framing in Intended Use.
+  - **Launch drafts** (`releases/launch-drafts/`): `hf-blog-post.md` (HF blog, technical launch) + `lawrenz-com-brief.md` (six-part method essay). Sequencing: HF first for reach, lawrenz.com essay after.
   - Git commits: `4e9571c`, `2f4cf18`, `9118f53`, `a04c933`, `7ab065b`, `6341ec2` (merged backbone)
-
-## Concluded
 
 - **[CONCLUDED — GO with caveat] External Held-Out Validation (CRLM)** (`external-validation-crlm`)
   - Hepatic-vessel specialist evaluated on CRLM (TCIA colorectal liver metastases), 197 patients / 17,639 slices, genuinely external to MSD pretraining.
@@ -50,16 +56,18 @@ Living workstream map — status tags: `[ACTIVE]`, `[CONCLUDED]`, `[TBD]`. Evide
   - Git commit: `3880452` (DataLoader fix + label extractor)
 
 - **[CONCLUDED — PIVOT] Scale LIDC Recipe to Other Organs** (`single-organ-specialists-expansion`)
-  - The ViT-Base scale-aware recipe on LIDC-only produced the project's best malignancy AUROC (0.728).
-  - Hypothesis: This single-organ specialist approach will generalize to other datasets (msd-colon, msd-hepatic-vessel), breaking the pan-organ capacity dilution.
-  - Pre-registered gate: Since view retrieval and spacing metrics are invalid for single-organ models, these will be gated purely on their LoRA AUROC against a baseline (if available) or raw classification capability.
+  - The ViT-Base scale-aware recipe on LIDC-only produced the project's best malignancy AUROC (0.728 — now retracted).
+  - Hypothesis: this single-organ specialist approach will generalize to other datasets (msd-colon, msd-hepatic-vessel), breaking the pan-organ capacity dilution.
+  - Pre-registered gate: single-organ models gated purely on their LoRA AUROC against a baseline (view retrieval and spacing metrics invalid — see Phase 8).
   - Data: `msd-colon` (38K slices) and `msd-hepatic-vessel` (48K slices) subsets extracted.
   - Git commit: `647efd9`
 
-## Concluded
+---
+
+## Concluded — architecture & pretraining
 
 - **[CONCLUDED — PIVOT] Replace View Retrieval Gate for Single-Organ Models** (`replace-view-retrieval-gate`)
-  - Tested spacing metrics as replacement gates on LIDC specialist (known good AUROC 0.728).
+  - Tested spacing metrics as replacement gates on LIDC specialist.
   - Failed targets (counterfactual 0.239 < 0.30, R² 0.941 < 0.95). Single datasets lack spacing variance to drive scale embeddings to pan-organ levels.
   - **Verdict:** Spacing gates invalid for single datasets. View retrieval invalid (architecture handicapped).
   - **New Governance:** Single-organ models gated **solely by LoRA AUROC** vs baseline.
@@ -74,7 +82,7 @@ Living workstream map — status tags: `[ACTIVE]`, `[CONCLUDED]`, `[TBD]`. Evide
   - 5-dataset pan-organ corpus (400K slices), ViT-Large (923M params), effective batch 256
   - Resumed 2026-07-19, completed 2026-07-22 at step 50,000. Memory mitigation stable; run finished cleanly.
   - View retrieval peaked at 34× (step 25K) vs pre-registered 100× gate. Entropy collapsed to chaotic oscillation at 40K. Pan-organ eval confirmed scanner fingerprinting (AUC 0.981) and capacity dilution (colon↔vessel cosine 0.962).
-  - **Root cause:** DINO + KoLeo objective rewards scanner identity and spacing geometry over cross-organ anatomy. ViT-Small and ViT-Large both hit same wall at different speeds — model size is not the bottleneck.
+  - **Root cause:** DINO + KoLeo objective rewards scanner identity and spacing geometry over cross-organ anatomy. ViT-Small and ViT-Large both hit the same wall at different speeds — model size is not the bottleneck.
   - See `docs/DISCONTINUATION_NOTICE_5dataset-phase5-large-bs256-v2.md`.
 
 - **[CONCLUDED — GO] MVP Two-Organ Scale-Aware Ablation** (`runs/mvp-two-organ/`)
@@ -96,6 +104,7 @@ Living workstream map — status tags: `[ACTIVE]`, `[CONCLUDED]`, `[TBD]`. Evide
 - **[CONCLUDED — GO] LIDC Malignancy LoRA Benchmark** (`adapters/lidc-malignancy-lora-r8-64px-lung-window/`)
   - 4-dataset backbone, LoRA rank=8, 64px crops, lung HU window → AUROC 0.710
   - Crop size dominates (64px >> 128px >> 224px). Lung window adds +3% vs generic.
+  - **This 0.710 is the unaffected reference baseline** (patient-stratified LoRA split) — the number Release #2 must beat.
 
 - **[CONCLUDED — GO] 5-Dataset Phase 3 Pretraining** (`runs/20260422_202622_5dataset-phase3-small/`)
   - 400K slices, ViT-Small, 50K steps, effective batch 128. View retrieval 56×.
@@ -117,7 +126,7 @@ Living workstream map — status tags: `[ACTIVE]`, `[CONCLUDED]`, `[TBD]`. Evide
   - 5-dataset, cosine schedule restretched to 100K. 81K: AUROC 0.697 (climbing), view retrieval 63×.
   - 86K: catastrophic capacity collapse (teacher entropy 0.001, AUROC 0.642).
   - ViT-Small definitively saturated. Path forward: ViT-Base or ViT-Large.
-  - See `docs/DISCONTINUATION_NOTICE_vit-small-100k.md` (to be created).
+  - See `docs/DISCONTINUATION_NOTICE_vit-small-100k.md`.
 
 ### Historical (Single-Dataset LIDC-IDRI, Jan 2026)
 
@@ -125,10 +134,13 @@ Living workstream map — status tags: `[ACTIVE]`, `[CONCLUDED]`, `[TBD]`. Evide
   - ViT-Large, LIDC-only, effective batch 256. Found "Golden Zone" LR ~2e-5. Broken entropy wall (loss 6.78) with frozen teacher (0.9995) + sharp temp (0.02).
 - Multiple additional ViT-Large single-dataset runs (Jan 3–9, 2026) — most Completed, some Stopped. See ledger for full table.
 
+---
+
 ## TBD
 
 - **[TBD] Fix `--ckpt-keep-last` Default** — change from 5 to 0 (keep all) or 10 to prevent checkpoint rotation from destroying intermediate evaluation points (lost 25K in Phase 6).
+- **[TBD] Colon New Hypothesis** — colon FAIL (0.6529) is blocked on a new hypothesis (organ-specific HU window, more patients, or a different task formulation) before any re-run.
 - **[TBD] Many-to-Many View Retrieval Matching** — relax 1-to-1 nearest neighbor to top-K mutual neighbors (arXiv:2604.23670) in `phase5_view_retrieval_eval.py`.
-- **[TBD] Cross-Modality Expansion** — MRI (`dinox-mri-vit-small`) and X-ray (`dinox-xray-vit-small`) models.
-- **[TBD] HF Hub Release** — publish `dinox-ct-vit-small-v1` model card + safetensors.
+- **[TBD] Tier 2 Expansion** — pancreas-CT (`dinox-ct-pancreas-vit-base-v1`) and CQ500 brain CT (`dinox-ct-cq500-vit-base-v1`); data ready.
+- **[TBD] Cross-Modality Expansion** — MRI (`dinox-mri-vit-small`, UKBOB) and X-ray (`dinox-xray-vit-small`).
 - **[TBD] Adversarial Pass Retrospective** — audit all GO verdicts against the 4-question checklist.
