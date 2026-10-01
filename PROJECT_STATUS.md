@@ -27,8 +27,10 @@ a new hypothesis** — per governance it is not launchable work.
 1. Build a **patient-level LIDC split manifest** (`zoo/splits.py`: resolve
    series → PatientID, hold out ~20% of patients, `assert_no_patient_leak`) and
    **pre-register the multi-seed AUROC gate with a CI** before launching.
-2. Launch the clean-split pretrain on **max395 via the GPU scheduler**
-   (~12.5h, ViT-Base, recipe unchanged from Phase 6).
+2. Launch the clean-split pretrain on the **4090 (`game`)** via the GPU scheduler
+   (job `2695fe2b1b26`, ~12.5h, ViT-Base, recipe unchanged from Phase 6). Note:
+   max395 was removed from the scheduler 2026-10-01, so the 4090 is the only
+   schedulable GPU — a CUDA context change from the ROCm original.
 3. On completion: LoRA fine-tune on the train patients, evaluate **only** on the
    held-out patients, then run the release machinery (envelope → gates → HF).
 
