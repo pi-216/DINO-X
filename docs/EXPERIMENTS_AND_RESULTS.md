@@ -841,11 +841,49 @@ not disproven. Pretrain with the LoRA-eval patients held out entirely, then eval
 
 ### Empirical Evidence
 
-_Pending — job queued; not yet launched._
+**Pretrain completed 2026-10-01** on the 4090 (`game`), job `2695fe2b1b26`, CUDA stack
+(torch 2.5.1+cu121, `is_rocm=False` — a context change from the ROCm original).
+50,000 steps in 3,771 s (63 min), exit 0. All 11 checkpoints retained (`--ckpt-keep-last 0`).
+`git_commit be7d62c`. Index `data/mvp/lidc_only_t2_patientholdout.csv` (124,278 rows).
+
+**Split verified clean** (independent re-check of the built artifacts, fresh process):
+holdout∩index = 0, holdout∩train = 0, holdout∩val = 0, train∩val = 0, train+val == index.
+The backbone did not see the LoRA-eval patients.
+
+**Training trajectory — NOT a clean run; do not read it as one.** Sampled @5K:
+
+| Step | Loss_Total | Entropy_Teacher |
+|---|---|---|
+| 0 | 10.84 | 2.83 |
+| 5K | 6.90 | 5.19 |
+| 10K | 7.10 | 5.99 |
+| 15K | 8.65 | 7.76 |
+| 20K | 5.64 | 5.04 |
+| 25K | 5.73 | 5.26 |
+| **30K** | **1.10** | **0.87** |
+| 35K | 5.04 | 4.67 |
+| 40K | 3.17 | 2.85 |
+| 45K | 5.15 | 4.70 |
+
+Teacher entropy collapses to **0.87 at step 30K** (loss 1.10) then recovers to 4.70 — an
+entropy-collapse episode with large adjacent-step swings, the same failure family the Phase 5
+ViT-Large run was KILLed for. **604 `Loss spike detected` warnings.** For comparison, the
+(contaminated) Phase 6 run's entropy fell to **0.58** by 45K and stayed collapsed
+(0.668 → 0.579) — its terminal state was *more* collapsed than ours.
+
+Caveat: the per-checkpoint Gram/std monitors (Gram 0.992–0.999, std 0.030–0.123) are weak
+proxies; they were previously misread in this session as a cleanliness verdict and they do
+**not** establish representation quality.
+
+**No downstream evaluation has been run** — no view retrieval, no pan-organ eval, no LoRA.
+Nothing about the model's quality is established. Checkpoint selection must not default to 50K
+(as Phase 6 did), because the trajectory passed through a collapse episode.
 
 ### Verdict
 
-**PENDING.**
+**PENDING** — pretrain complete and split clean, but representation quality is unmeasured and
+the trajectory shows an entropy-collapse episode. Gate remains the 3-seed LoRA test AUROC;
+run view retrieval first (cheap, per-checkpoint) to select the checkpoint honestly.
 
 ---
 
