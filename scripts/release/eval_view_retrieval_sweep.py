@@ -78,7 +78,10 @@ def main() -> int:
             print(f"FAILED {label}: {(r.stderr or '')[-400:]}", file=sys.stderr, flush=True)
             rows.append({"label": label, "checkpoint": ckpt.name, "error": "nonzero exit"})
             continue
-        out_json = ckpt.parent / f"view_retrieval_step{ckpt.stem.split('_')[-1]}_N{a.n}.json"
+        layer_tag = f"_layer{a.layer}" if a.layer is not None else ""
+        out_json = ckpt.parent / f"view_retrieval_step{int(ckpt.stem.split('_')[-1])}_N{a.n}{layer_tag}.json"
+        if not out_json.exists():
+            out_json = ckpt.parent / f"view_retrieval_step{ckpt.stem.split('_')[-1]}_N{a.n}.json"
         d = json.loads(out_json.read_text()) if out_json.exists() else {}
         rows.append({
             "label": label,

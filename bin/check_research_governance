@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+import json
+import pathlib
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+REQUIRED_DOCS = [
+    "AGENTS.md",
+    "PROJECT_STATUS.md",
+    "docs/experiment-structure.md",
+    "docs/EXPERIMENT_TREE.md",
+    "docs/EXPERIMENTS_AND_RESULTS.md",
+    "docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md",
+    "docs/DISCONTINUATION_NOTICE_5dataset-phase5-large-bs256-v2.md",
+    "docs/pm/red-lines.md",
+]
+
+
+def main() -> int:
+    errors: list[str] = []
+
+    for rel in REQUIRED_DOCS:
+        if not (ROOT / rel).exists():
+            errors.append(f"missing required governance file: {rel}")
+
+    if (ROOT / "docs" / "tangential-research.md").exists():
+        errors.append("docs/tangential-research.md is forbidden in-tree; use GitHub issues")
+
+    manifest_path = ROOT / "data" / "mvp" / "split_manifest_lidc_patientholdout.json"
+    if not manifest_path.exists():
+        errors.append("missing patient-holdout split manifest: data/mvp/split_manifest_lidc_patientholdout.json")
+    else:
+        try:
+            manifest = json.loads(manifest_path.read_text())
+            if manifest.get("group_key") != "patient_id":
+                errors.append("split_manifest_lidc_patientholdout.json: group_key must be 'patient_id'")
+            train_p = set(manifest.get("train", {}).get("patients", []))
+            val_p = set(manifest.get("val", {}).get("patients", []))
+            holdout_p = set(manifest.get("holdout_lora_eval", {}).get("patients", []))
+            if train_p & val_p:
+                errors.append("split_manifest_lidc_patientholdout.json: train and val patients overlap")
+            if (train_p | val_p) & holdout_p:
+                errors.append("split_manifest_lidc_patientholdout.json: pretrain and holdout_lora_eval patients overlap")
+        except Exception as exc:
+            errors.append(f"split_manifest_lidc_patientholdout.json invalid: {exc}")
+
+    if errors:
+        for err in errors:
+            print(f"GOVERNANCE FAIL: {err}", file=sys.stderr)
+        return 1
+
+    print(f"research governance ok ({len(REQUIRED_DOCS)} docs + patient-holdout split manifest verified)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
