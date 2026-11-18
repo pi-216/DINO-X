@@ -1,0 +1,38 @@
+name: brats-2021
+modality: mri
+organs:
+  - brain
+source_url: https://www.cancerimagingarchive.net/analysis-result/rsna-asnr-miccai-brats-2021
+license: CC-BY-4.0
+license_url: https://creativecommons.org/licenses/by-4.0/
+redistribution: prohibited
+redistribution_note: >
+  Distributed by TCIA under CC BY 4.0 with a data usage agreement;
+  processed slices must not be mirrored. NIfTI files with BraTS
+  case-series naming (case_scan_0000..0003 per sequence).
+attribution_required: true
+attribution: >
+  RSNA-ASNR-MICCAI BraTS 2021. Baid U, Ghodasara S, Mohan S, et al.
+  The RSNA-ASNR-MICCAI BraTS 2021 Benchmark on Brain Tumor Segmentation
+  and Radiogenomic Classification. arXiv:2107.02314.
+total_slices: 0
+total_series: 5880
+annotations:
+  - brain_tumor_subregion_segmentation
+preprocessing:
+  format: png_16bit
+  encoding: zscore16
+  index_csv: index.csv
+citation: >
+  Baid U, Ghodasara S, Mohan S, Bilello M, Calabrese E, Colak E,
+  Farahani K, Kalpathy-Cramer J, Kitamura FC, Pati S, et al. The
+  RSNA-ASNR-MICCAI BraTS 2021 Benchmark on Brain Tumor Segmentation and
+  Radiogenomic Classification. arXiv:2107.02314, 2021.
+notes: >
+  Multi-parametric brain MRI (glioma). Segmentation task split:
+  1251 training + 219 validation cases, each with 4 co-registered
+  sequences (native T1 _0000, post-contrast T1 _0001, T2 _0002,
+  T2-FLAIR _0003) — 1470 cases x 4 = 5880 volumes. Skull-stripped and
+  registered to one anatomy; acquisition planes vary. Patient identity
+  derives from the BraTS case id so zoo.splits patient-level asserts hold.
+  HU ranges do not apply to MRI; slice counts filled at ingest time.

@@ -1,0 +1,40 @@
+name: amos-mri
+modality: mri
+organs:
+  - abdomen
+  - liver
+  - kidney
+  - spleen
+  - pancreas
+source_url: https://amos22.grand-challenge.org
+license: CC-BY-4.0
+license_url: https://creativecommons.org/licenses/by-4.0/
+redistribution: allowed
+redistribution_note: >
+  CC-BY-4.0 permits redistribution with attribution. Released by the
+  AMOS organizers on Zenodo (DOI 10.5281/zenodo.6361922).
+attribution_required: true
+attribution: >
+  Ji Y, Bai H, Ge C, et al. AMOS: A Large-Scale Abdominal Multi-Organ
+  Benchmark for Versatile Medical Image Segmentation. NeurIPS 2022
+  Datasets and Benchmarks. Zenodo DOI 10.5281/zenodo.6361922.
+total_slices: 0
+total_series: 100
+annotations:
+  - organ_segmentation_15_organs
+preprocessing:
+  format: png_16bit
+  encoding: zscore16
+  index_csv: index.csv
+citation: >
+  Ji Y, Bai H, Ge C, Yang J, Zhu Y, Zhang R, Li Z, Zhang L, Ma W, Wan X,
+  et al. AMOS: A Large-Scale Abdominal Multi-Organ Benchmark for Versatile
+  Medical Image Segmentation. Advances in Neural Information Processing
+  Systems 35 (NeurIPS 2022 Datasets and Benchmarks), 36722-36732.
+notes: >
+  Abdominal multi-organ MRI from the AMOS22 challenge: 100 MRI scans
+  officially (500 CT + 100 MRI total), of which 60 MRI volumes across 60
+  patients are public with annotations (multi-planar, multi-sequence).
+  Per-scan sequence type is not published, so ingest labels volumes with
+  --single-sequence mri. HU ranges do not apply to MRI. Slice counts are
+  filled in by scripts/preprocessing/preprocess_mri.py at ingest time.

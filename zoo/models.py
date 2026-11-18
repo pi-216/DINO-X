@@ -12,15 +12,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-# ---------------------------------------------------------------------------
-# Dataset catalog entry — one per dataset, stored as YAML
-# ---------------------------------------------------------------------------
-
 
 class PreprocessingConfig(BaseModel):
     """How raw data has been converted to training-ready format."""
 
     format: Literal["png_16bit", "png_8bit", "npy", "nifti"] = "png_16bit"
+    encoding: Literal["hu16", "zscore16"] = "hu16"
     hu_shift: int = 32768
     scale: int = 10
     index_csv: str = ""
@@ -48,10 +45,6 @@ class DatasetEntry(BaseModel):
     notes: str = ""
 
 
-# ---------------------------------------------------------------------------
-# Per-slice metadata — stored as Parquet for efficient querying
-# ---------------------------------------------------------------------------
-
 
 class SliceMetadata(BaseModel):
     """Physical metadata for a single image slice.
@@ -72,10 +65,6 @@ class SliceMetadata(BaseModel):
     study_date: str | None = None
 
 
-# ---------------------------------------------------------------------------
-# Dataset usage record — one per dataset in a training run
-# ---------------------------------------------------------------------------
-
 
 class DatasetUsage(BaseModel):
     """Records how a single dataset was used in a training run."""
@@ -88,10 +77,6 @@ class DatasetUsage(BaseModel):
     slice_thickness_min: float = 0.0
     slice_thickness_max: float = 0.0
 
-
-# ---------------------------------------------------------------------------
-# Spacing statistics across the training corpus
-# ---------------------------------------------------------------------------
 
 
 class SpacingStats(BaseModel):
@@ -107,10 +92,6 @@ class SpacingStats(BaseModel):
     slice_thickness_max: float = 0.0
     slice_thickness_mean: float = 0.0
 
-
-# ---------------------------------------------------------------------------
-# Training lineage — full provenance record for a training run
-# ---------------------------------------------------------------------------
 
 
 class TrainingLineage(BaseModel):

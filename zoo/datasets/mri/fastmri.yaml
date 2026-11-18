@@ -1,0 +1,43 @@
+name: fastmri
+modality: mri
+organs:
+  - knee
+  - brain
+source_url: https://fastmri.med.nyu.edu
+license: >
+  NYU fastMRI Data Use Agreement (internal research or educational use only)
+license_url: https://fastmri.med.nyu.edu
+redistribution: prohibited
+redistribution_note: >
+  Data are proprietary to NYU and NYU Langone Health; access requires
+  accepting the fastMRI data use agreement. Derived slices may not be
+  redistributed. Cite NYU fastMRI in any publication.
+attribution_required: true
+attribution: >
+  NYU fastMRI. Knoll F, Zbontar J, Sriram A, Muckley MJ, Bruno M,
+  Defazio A, Parente M, Geras KJ, Katsnelson J, Chandarana H, et al.
+  fastMRI: A Publicly Available Raw k-Space and DICOM Dataset of Knee
+  Images for Accelerated MR Image Reconstruction Using Machine Learning.
+  Radiol Artif Intell. 2020;2(1):e190007. arXiv:1811.08839.
+total_slices: 0
+total_series: 10000
+annotations: []
+preprocessing:
+  format: png_16bit
+  encoding: zscore16
+  index_csv: index.csv
+citation: >
+  Knoll F, Zbontar J, Sriram A, Muckley MJ, Bruno M, Defazio A, Parente M,
+  Geras KJ, Katsnelson J, Chandarana H, Zhang Z, Drozdzal M, Romero A,
+  Rabbat M, Vincent P, Pinkerton E, Wang D, Yakubova N, Owens E,
+  Zitnick CL, Recht MP, Sodickson DK, Lui YW. fastMRI: An Open Dataset
+  and Benchmarks for Accelerated MRI. arXiv:1811.08839 (2018); knee
+  release in Radiol Artif Intell 2020;2(1):e190007.
+notes: >
+  Large-scale clinical knee and brain MRI: 10000 clinical knee exams as
+  processed DICOM images, raw k-space for ~1500 fully-sampled knees and
+  ~6970 brain exams. This pipeline consumes reconstructed image planes
+  only — DICOM converted to NIfTI (dcm2niix) before ingest; k-space
+  (HDF5) is out of scope for image-level pretraining. Sequence tokens
+  (t1, t2, flair, pdfs, dwi) are read from converted filenames.
+  HU ranges do not apply to MRI; slice counts filled at ingest time.
