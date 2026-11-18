@@ -1,0 +1,78 @@
+{
+  "answers": [
+    {
+      "question": "(1) Is there an established minimum dataset size below which a medical-imaging ML model cannot support a credible generalization claim?",
+      "answer": "No. There is no single, field-standard minimum number of patients/samples below which generalization is automatically unsupportable. The literature consistently rejects a fixed floor: reviews (Balki et al. 2019, CARJ; Varoquaux & Cheplygina 2022, npj Digit Med) note medical datasets are 'on the order of hundreds or thousands' of subjects and that no standard sample-size method is widely adopted. What does exist are (a) a widely quoted heuristic of ~1,000 images per class, traceable to ImageNet-era CNN training and to Cho et al. 2015 (arXiv:1511.06348), which used learning-curve power-law extrapolation and found ~1,000 images/class predicted ~98% accuracy for body-part classification; and (b) classical prediction-model rules (EPV>=10, and the Riley et al. 2019 criteria that replaced it) which apply to logistic/prognostic models, not deep nets, and typically require MORE events than EPV=10 implies. There is no published calibrated threshold for a frozen SSL backbone + LoRA fine-tuning of a binary task; the defensible practice is to demonstrate sufficiency empirically via your own learning curve and confidence intervals rather than cite a number."
+    },
+    {
+      "question": "(2) What is the accepted class-imbalance ratio beyond which a binary classifier's AUROC/AUPRC becomes unreliable?",
+      "answer": "There is no accepted numeric ratio at which AUROC becomes 'unreliable.' The key established facts: (a) AUROC is mathematically prevalence-independent — its random baseline is always 0.5 and its interpretation does not depend on the positive fraction (McDermott et al. 2024, NeurIPS 'A Closer Look at AUROC and AUPRC under Class Imbalance'); (b) AUPRC's random baseline equals the positive prevalence P/(P+N), so a 'good' AUPRC is only meaningful relative to that prevalence, not to 0.5 (Saito & Rehmsmeier 2015, PLOS ONE; Davis & Goadrich 2006); (c) accuracy is the metric that genuinely breaks under imbalance. So the reliability concern is metric-specific: AUROC stays interpretable at any ratio, AUPRC must be benchmarked against prevalence, and accuracy should be abandoned once the minority class is rare. Informally, ratios beyond ~1:100 (<=~1% minority) are repeatedly labeled 'severe/extreme' in the literature (e.g., Buda et al. 2018; machinelearningmastery), but this is a descriptive label, not a validated cutoff, and it is NOT a threshold at which AUROC loses meaning."
+    },
+    {
+      "question": "(3) When is 'more data' actually harmful vs. helpful?",
+      "answer": "More data is harmful specifically when it injects label noise, distribution shift / heterogeneity, or off-domain examples — not from raw volume per se. Established evidence: (a) even modest label noise (single-digit to ~10-20%) consistently degrades deep classifiers, and adding more noisy data does not recover performance (Northcutt et al. 2021 'Pervasive Label Errors'; label-noise DL survey, PubMed 38613918; UDC poor-quality-data case study, PMC8429593, where models trained on the ~5% of data that survived noise cleaning still exceeded 92% accuracy); (b) larger brain-imaging cohorts did NOT improve Alzheimer's diagnosis accuracy over a decade of growth — demonstrating dataset size gains can be canceled by heterogeneity/noise (Varoquaux & Cheplygina 2022, Fig. 1); (c) transfer from a domain far from the target is progressively less effective, so 'more data' in the wrong domain adds little (Konstantakos et al. 2025, Neurocomputing; Zech et al. 2018 pneumonia generalization failure). Capacity dilution and 'double descent' as a cause of harm are NOT established in medical imaging. The robust rule: grow quantity only within the target distribution and with audited label quality."
+    }
+  ],
+  "recommendations": [
+    {
+      "recommendation": "Treat ~1,000 labeled images per class as a floor for training a small model from scratch; for your frozen-SSL+LoRA setup, do not quote a fixed count — estimate the requirement with a learning curve (train on increasing subsets, fit a power law) and report confidence intervals on AUROC.",
+      "source": "Cho et al. 2015, arXiv:1511.06348 'How much data is needed…'; Balki et al. 2019, Can Assoc Radiol J 70(4):344-353, doi:10.1016/j.carj.2019.06.002",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "For fine-tuning a frozen DINO/SSL backbone + LoRA adapter, several hundred labeled patients per class may plausibly suffice, but this exact range is NOT validated anywhere — treat it as a hypothesis to be confirmed by your own learning curve and by a patient-level estimate of AUROC CI width, not a fact you can cite.",
+      "source": "Balki et al. 2019 (systematic review: 'scarcity of research' on sample size for ML in medical imaging); Varoquaux & Cheplygina 2022, npj Digit Med 5:48, doi:10.1038/s41746-022-00592-y",
+      "confidence": "synthesized"
+    },
+    {
+      "recommendation": "Report AUROC AND AUPRC together, and always compare AUPRC against its positive-prevalence baseline P/(P+N), never against 0.5. AUROC itself is prevalence-independent and remains interpretable at any imbalance ratio.",
+      "source": "Saito & Rehmsmeier 2015, PLOS ONE 10(3):e0118432; McDermott et al. 2024, NeurIPS, arXiv:2401.06091",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "Drop accuracy as a headline metric for your binary malignancy task; report sensitivity/specificity (and/or PPV/NPV) at a fixed, clinically justified operating point plus AUROC/AUPRC, since accuracy is dominated by the majority class once the minority class is rare.",
+      "source": "Saito & Rehmsmeier 2015; Buda et al. 2018, Neural Networks / arXiv:1710.05381 (systematic study using AUROC, rejecting accuracy under imbalance)",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "There is no validated ratio at which AUROC 'breaks'; treat imbalance ratios beyond roughly 1:100 (minority <=~1%) as 'extreme' and apply explicit mitigation (class weighting and/or oversampling), and widen confidence intervals — but do not present 1:100 as a scientific threshold.",
+      "source": "Buda et al. 2018 (extreme imbalance study); McDermott et al. 2024 (AUROC prevalence-independence); label is descriptive, not validated",
+      "confidence": "synthesized"
+    },
+    {
+      "recommendation": "If you rebalance, oversampling the minority class to full 50:50 is the most consistently effective intervention for CNNs; be cautious with SMOTE-type synthetic oversampling in high-dimensional image/embedding space, and pair oversampling with threshold adjustment on the output score.",
+      "source": "Buda et al. 2018, arXiv:1710.05381 (oversampling to full balance optimal; undersampling ratio depends on imbalance extent)",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "Prioritize data quality over raw quantity: audit labels for noise before adding more data, because small label-noise fractions degrade models and more noisy data does not help; keep newly added data within the target distribution and acquisition domain.",
+      "source": "Northcutt et al. 2021 'Pervasive Label Errors in Test Sets' (label noise); Varoquaux & Cheplygina 2022 (larger datasets did not improve AD accuracy); Zech et al. 2018 PLoS Med 15:e1002683 (cross-domain generalization failure)",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "Count PATIENTS (subjects), not slices/images, for all generalization claims, and split train/val/test at the patient level to avoid leakage — a subject can contribute many slices, which inflates apparent N.",
+      "source": "Varoquaux & Cheplygina 2022, npj Digit Med 5:48 ('medical imaging we refer to number of subjects… a subject may have multiple images')",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "If you need a formal pre-hoc sample-size number for a logistic-style prediction (e.g., calibration/risk modeling), use the Riley et al. criteria (pmsampsize), not the outdated EPV>=10 rule, which systematically under-sizes.",
+      "source": "Riley et al. 2019, Stat Med 38(7):1276-1296, doi:10.1002/sim.7992; van Smeden et al. 2018 'Beyond events per variable', PMC6710621",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "For self-supervised PRETRAINING, 'low data' is considered ~50k-300k images and ImageNet-scale (~1.2M) is the de facto prerequisite for strong representations; expect weaker features below that and do not assume a domain-specific CT pretraining corpus of a few thousand images yields the same quality as a large public backbone — there is no published floor.",
+      "source": "Konstantakos et al. 2025, Neurocomputing, 'Self-supervised visual learning in the low-data regime' (doi:10.1016/j.neucom.2024.xxx; low-data defined as 50k-300k images)",
+      "confidence": "established"
+    }
+  ],
+  "not_established": [
+    "A universal minimum number of patients/samples below which a medical-imaging model cannot support generalization — no such number exists in the literature; '~1,000 images/class' is a heuristic, not a validated medical-imaging cutoff.",
+    "A consensus class-imbalance ratio (positive:negative) at which AUROC becomes 'unreliable' or 'majority-class-dominated' — the literature has no agreed numeric threshold; McDonald et al. 2024 argue AUROC remains prevalence-independent at any ratio, while AUPRC must be leveled against its prevalence baseline.",
+    "Whether AUPRC or AUROC is the 'correct' metric for imbalanced model comparison — this is actively contested (Saito & Rehmsmeier 2015 vs. McDermott et al. 2024), so neither choice can be cited as settled.",
+    "The minimum labeled sample size needed specifically for LoRA fine-tuning of a frozen SSL/DINO ViT backbone on a binary medical task — no published calibration exists; 'a few hundred patients' is an unvalidated hypothesis.",
+    "The exact label-noise fraction past which adding more data becomes net-harmful — depends on task and noise type; no single validated percentage exists (5-20% is descriptive, not a threshold).",
+    "Whether 'double descent' / capacity dilution causes non-monotonic (harmful-then-helpful) behavior in medical imaging — not established in this domain.",
+    "A minimum self-supervised pretraining corpus size for domain-specific CT — no floor is established below ImageNet-scale ('low data' = 50k-300k images is a working definition, not a validated threshold).",
+    "A validated optimal oversampling ratio for CT nodule tasks specifically — Buda et al. recommend full balance for generic CNNs, but its transfer to your frozen-backbone+LoRA setting is untested."
+  ]
+}

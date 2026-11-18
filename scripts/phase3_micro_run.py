@@ -18,6 +18,7 @@ import json
 import os
 import random
 import signal
+import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -47,6 +48,12 @@ try:
     import torch.nn.functional as F
 except Exception:  # pragma: no cover
     _need("torch")
+
+# Canonical hu16 decode lives in zoo.encoding; import rather than inline.
+_REPO_ROOT = str(Path(__file__).resolve().parents[1])
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from zoo.encoding import u16_to_hu  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -251,7 +258,8 @@ class PngDataset(torch.utils.data.Dataset):
         arr = np.asarray(im)
         if arr.dtype != np.uint16:
             arr = arr.astype(np.uint16)
-        hu = arr.astype(np.float32) - HU_OFFSET
+        # Canonical DINO-X decode: HU = (u16 - 32768) * 0.1 (encode is round(HU*10)+32768).
+        hu = u16_to_hu(arr)
         return _window_hu_to_01(hu, level=level, width=width)
 
     def __getitem__(self, idx: int) -> torch.Tensor:

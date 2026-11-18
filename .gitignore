@@ -28,5 +28,19 @@ data/**/*.jpg
 data/**/*.jpeg
 
 # Training runs and checkpoints
+runs
 runs/
 checkpoints/
+.worktrees/
+
+# LoRA adapter weights — live on NAS + HF Hub, not git (see docs/git-workflow.md)
+adapters/
+
+# Model binaries in release envelopes — keep the TEXT evidence, not the weights
+*.safetensors
+*.pth
+*.pt
+*.onnx
+
+# Scratch metrics / tunable-op tuning dumps at repo root
+tunableop_results*.csv

@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional
@@ -39,9 +40,19 @@ except Exception:  # pragma: no cover
     _need("pillow")
 
 
-HU_CLIP_LO = -1000.0
-HU_CLIP_HI = 4000.0
-HU_OFFSET = 32768
+# Single source of truth for hu16 PNG encoding lives in zoo.encoding; import it
+# (and its constants) rather than redefining here, so encode/decode cannot drift.
+_REPO_ROOT = str(Path(__file__).resolve().parents[2])
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from zoo.encoding import (  # noqa: E402
+    HU_CLIP_HI,
+    HU_CLIP_LO,
+    HU_OFFSET,
+    HU_SCALE,
+    hu_to_u16,
+)
 
 
 @dataclass(frozen=True)
@@ -49,12 +60,6 @@ class SliceKey:
     sort_z: float
     instance: int
     path: Path
-
-
-def hu_to_u16(img_hu: "np.ndarray") -> "np.ndarray":
-    x = np.clip(img_hu, HU_CLIP_LO, HU_CLIP_HI)
-    x = np.rint(x + float(HU_OFFSET))
-    return x.astype(np.uint16)
 
 
 def save_slice_16bit(hu_slice: "np.ndarray", out_path: Path) -> None:

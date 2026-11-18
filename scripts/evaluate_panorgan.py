@@ -81,6 +81,7 @@ from zoo.arch import (  # noqa: E402
     migrate_state_dict,
     needs_migration,
 )
+from zoo.encoding import u16_to_hu  # noqa: E402
 from phase5_big_run import ModelConfig, PngDataset, _load_index_rows  # noqa: E402
 
 
@@ -135,7 +136,7 @@ class EvalDataset(torch.utils.data.Dataset):
         arr = np.array(img, dtype=np.float32)
         if arr.ndim == 3:
             arr = arr[:, :, 0]
-        hu = (arr - 32768.0) * 0.1
+        hu = u16_to_hu(arr)
         wmin = self.window_level - self.window_width / 2.0
         wmax = self.window_level + self.window_width / 2.0
         windowed = (hu - wmin) / max(self.window_width, 1.0)

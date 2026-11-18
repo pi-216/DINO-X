@@ -1,0 +1,76 @@
+{
+  "answers": [
+    {
+      "question": "What is the line between internal and external validation, and why does internal-only miss real failure modes?",
+      "answer": "Internal validation evaluates a model on data drawn from the SAME study population, setting, and (usually) acquisition pipeline it was trained on. In TRIPOD's taxonomy this spans Type 1a (performance on the exact training data), Type 1b (bootstrap/cross-validation resampling), Type 2a (random split of one cohort into train/test), and Type 2b (non-random split, e.g. by time or location, within one overarching dataset). External validation (TRIPOD Types 3/4) tests the model on data gathered by a DIFFERENT group, at a different institution, on different scanners, or a different population, where the model genuinely never saw the cases. The failure modes internal-only misses are exactly the things that are constant inside one institution: (a) distribution/dataset shift across scanners, protocols, and patient demographics, (b) hospital and scanner 'fingerprinting' — models can learn to identify the source site or scanner from pixel-level artifacts and exploit that as a shortcut instead of learning the actual disease, and (c) shortcut learning and label/selection bias that is invisible when train and test share the same hidden confounders. A clean patient-held-out random split fixes only ONE of these — patient-level leakage — and does nothing about site/scanner/population shift. Famous empirical evidence: a 2022 RSNA systematic review found 81% of externally-validated radiology deep-learning algorithms performed WORSE on the external set than internally (49% by >=0.05, 24% by >=0.10 on the AUC/unit scale), with no study characteristic predicting the size of the drop."
+    },
+    {
+      "question": "Do reporting standards (TRIPOD/TRIPOD+AI, CLAIM, STARD, CONSORT-AI/SPIRIT-AI) REQUIRE external validation?",
+      "answer": "No — none of them require you to HAVE performed external validation in order to publish. They are REPORTING standards, not validation mandates. TRIPOD explicitly states it 'does not prescribe how to develop or validate a prediction model'; it requires that the study TYPE be disclosed (TRIPOD item: identify development vs. validation, and for validation, describe how it differs from development data). The current standard for ML prediction models is TRIPOD+AI (BMJ 2024), which supersedes TRIPOD 2015 and adds ML-specific items (data handling, fairness, performance with CIs), but its core message is still 'say clearly whether you did internal or external validation,' not 'you must do external.' CLAIM (Checklist for AI in Medical Imaging, RSNA) has an explicit item (32) for 'Validation or testing on external data,' and its authors frame the checklist as 'best practice' and acknowledge 'not every manuscript will address every criterion.' STARD (diagnostic accuracy studies) and CONSORT-AI/SPIRIT-AI (interventional trials of AI) likewise do not impose external validation as a gate. The shared, established norm across all of them is: you must report whether validation was internal or external, on what data, and with what differences from training — and you must not imply generalization you did not test."
+    },
+    {
+      "question": "Do regulators, radiology societies, or journals MANDATE external validation before clinical deployment or publication?",
+      "answer": "For CLINICAL DEPLOYMENT under FDA, effectively yes — but as a bundled data-standard, not as a single check box labeled 'external validation.' FDA's Good Machine Learning Practice principles (with Health Canada and MHRA) require that training and test datasets be independent ('all potential sources of dependence, including patient, data acquisition, and site factors' addressed) AND that clinical-study participants and datasets be representative of the intended-use population. In practice, FDA premarket reviewers ask for data from multiple (commonly cited as ~3) geographically diverse sites to support generalizability and subgroup claims, so a single-institution internal-only dataset will not carry a generalizability claim for a regulated medical device. For PUBLICATION there is no hard editorial mandate: RSNA and ACR journals still accept and publish internal-only studies, and the RSNA review's own headline finding is that external validation 'is performed in relatively few published studies.' The societies' position (embodied in CLAIM and editorials) is that external validation should be performed and clearly reported, but it is a strong recommendation, not a publishability rule. ACR/RSNA have not issued a binding 'no external = reject' policy."
+    },
+    {
+      "question": "For a small team publishing a NON-clinical model on a hub, is honest internal-only disclosure acceptable, or is external the floor?",
+      "answer": "Honest internal-only disclosure IS acceptable as the baseline for a non-clinical, research-use model release — provided the claim matches the evidence. The governing principle is that the strength of your VALIDATION must match the strength of your CLAIM, not that external validation is always required. What is NOT acceptable is releasing with any language implying generalization, clinical readiness, or cross-institution robustness when only a held-out internal split was done: the RSNA 81%-degradation finding shows internal numbers routinely overstate real-world performance. So the defensible position is: (1) release is fine; (2) the model card must say research/experimental, not for clinical decisions, and must state plainly 'internally validated on a held-out patient split; no external validation performed; generalization to other scanners/institutions/sites is unproven.' When you later add an external set (as DINO-X did for hepatic-vessel with CRLM), you can then (and only then) upgrade the claim to cross-institution generalization. This is consistent with how Hugging Face model cards work in practice — disclosure in a Limitations/Evaluation section is the norm, with ~89% of well-maintained cards carrying explicit disclaimers about scope of valid use. There is no legal or guidance-based floor forcing external validation for a non-clinical hub release; the 'floor' is honest scoping, not external data."
+    }
+  ],
+  "recommendations": [
+    {
+      "recommendation": "Adopt TRIPOD's three-tier vocabulary in every model card and never blur it: (1) internal random-split = Type 2a, (2) internal non-random/temporal or leave-one-site-out = Type 2b / internal-external, (3) external different-institution = Type 3. Label each model's evidence tier explicitly.",
+      "source": "TRIPOD Statement, Moons KGM et al., Ann Intern Med 2015;162(1):W1-73, doi:10.7326/M14-0698; classification of Types 1a-4 (https://pubmed.ncbi.nlm.nih.gov/25560714/)",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "Treat a single patient-held-out random split as necessary but NOT sufficient for any claim beyond 'performs on this institution's population.' It establishes internal validity (no patient leakage) and nothing about site/scanner/population shift.",
+      "source": "Steyerberg EW et al., 'Prediction models need appropriate internal, internal-external, and external validation,' J Clin Epidemiol (PMC5578404); clinicalpredictionmodels.org Ch 17 — random splits assess only internal validity (https://pmc.ncbi.nlm.nih.gov/articles/PMC5578404/)",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "For the LIDC lung-malignancy model specifically, do NOT release with 'generalizes' or 'validated' language. Use 'internally validated on a held-out patient split (no external validation performed; generalization unproven).' Match the claim to the evidence tier.",
+      "source": "Yu AC, Mohajer B, Eng J, 'External Validation of Deep Learning Algorithms for Radiologic Diagnosis: A Systematic Review,' Radiol Artif Intell 2022;4(3):e210064 — 81% degraded externally (https://pmc.ncbi.nlm.nih.gov/articles/PMC9152694/)",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "In the model card, state explicitly that the artifact is research-only / not for clinical diagnosis or treatment, and enumerate the UNKNOWN (unseen scanners, hospitals, demographics). This is the accepted bar for a non-clinical hub release.",
+      "source": "Hugging Face model card best practices and user studies — Limitations/Evaluation sections are the standard disclaimers, ~89% of top cards carry scope-of-use disclaimers (https://huggingface.co/docs/hub/en/model-cards; arxiv 2402.05160)",
+      "confidence": "common-practice"
+    },
+    {
+      "recommendation": "If you want to claim ANY cross-institution robustness, external validation becomes de facto mandatory — budget for it or delete the claim. The empirical case that internal numbers overstate is strong and published in a radiology society journal.",
+      "source": "Yu AC et al., Radiol Artif Intell 2022;4(3):e210064, doi:10.1148/ryai.210064 (https://pubs.rsna.org/doi/10.1148/ryai.210064)",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "Report the LIDC model against TRIPOD+AI (the current standard for ML prediction models, superseding TRIPOD 2015) and CLAIM 2024; these require you to disclose validation type, data provenance, and performance with confidence intervals — which is exactly what defends an internal-only release.",
+      "source": "Collins GS et al., 'TRIPOD+AI statement,' BMJ 2024;385:e078378 (https://www.tripod-statement.org); Tejani AS et al., 'Checklist for AI in Medical Imaging (CLAIM) 2024 Update,' Radiol Artif Intell 2024, doi:10.1148/ryai.240300 — item 32 external data",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "When data spans multiple sources/sites, prefer internal-external cross-validation (hold out one site at a time) over a single random split — it starts to probe site-level generalization and is the strongest evidence available short of true external data.",
+      "source": "Steyerberg/Harrell, clinicalpredictionmodels.org Ch 17 (leave-one-center-out counts as external validation); 'Prediction models need appropriate internal, internal-external, and external validation' (PMC5578404)",
+      "confidence": "common-practice"
+    },
+    {
+      "recommendation": "Keep an explicit notation in the model card distinguishing 'independent internal test set' from 'external validation' — conflating them is the single most common way an internal-only model is misrepresented as externally validated.",
+      "source": "TRIPOD Type 2a vs Type 3; CLAIM 2024 'external data' item 32 (doi:10.1148/ryai.240300)",
+      "confidence": "established"
+    },
+    {
+      "recommendation": "If/when DINO-X pursues any FDA-clearable clinical claim, plan for multi-site (~3 geographically diverse) data and independence of test from training including site factors — internal-only will not support a regulated generalizability claim.",
+      "source": "FDA/Health Canada/MHRA, 'Good Machine Learning Practice for Medical Device Development: Guiding Principles' (Oct 2021), Principles 3-4 on independence & representativeness (https://www.fda.gov/medical-devices/software-medical-device-samd/good-machine-learning-practice-medical-device-development-guiding-principles)",
+      "confidence": "established"
+    }
+  ],
+  "not_established": [
+    "No consensus quantitative threshold for how many sites, scanners, or how small a performance drop makes external validation 'sufficient' to declare a model generalizes — FDA's commonly cited '3 geographically diverse sites' is a reviewer heuristic, not codified law.",
+    "No universal or binding rule that publication requires external validation — RSNA/ACR journals still accept internal-only studies; CLAIM/TRIPOD are recommendations, not publishability gates.",
+    "No binding disclosure standard that legally or contractually forces a non-clinical model-hub release to do external validation — Hugging Face model cards are best-practice, not an enforced regulatory requirement.",
+    "Whether internal-external (leave-one-site-out) cross-validation 'counts as' external validation is not settled — methodologists vary, and it is usually treated as stronger than internal but weaker than true independent external data.",
+    "No agreed definition of the minimum distance of 'external' (different institution vs. different scanner vs. different country vs. different time) required before a claim upgrades from internal to external.",
+    "No established 'safety floor' for when an internal-only non-clinical model crosses into being irresponsible to release — this is governed by judgment about intended use and foreseeable misuse, not by a checklist.",
+    "The acceptable magnitude of internal-vs-external performance drop (e.g., is a 0.05 AUC drop tolerable?) before a generalization claim should be retracted is not standardized — the RSNA review reports drops descriptively but does not set an acceptance threshold."
+  ]
+}

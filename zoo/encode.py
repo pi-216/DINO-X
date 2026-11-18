@@ -25,6 +25,7 @@ import numpy as np
 import torch
 
 from zoo.arch import PatchViT
+from zoo.encoding import u16_to_hu
 
 # ImageNet normalization (matches training pipeline)
 _IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -51,8 +52,8 @@ def _to_hu(
     if input_format == "hu_float":
         return arr.astype(np.float32)
     elif input_format == "hu16_png":
-        # Our 16-bit PNG encoding: HU = (uint16 - 32768) * 0.1
-        return (arr.astype(np.float32) - 32768.0) * 0.1
+        # Our 16-bit PNG encoding: HU = (uint16 - 32768) * 0.1 (canonical)
+        return u16_to_hu(arr)
     elif input_format == "windowed_float":
         # Already windowed to [0, 1] — skip HU conversion
         return arr.astype(np.float32)

@@ -36,6 +36,7 @@ from torchvision import transforms
 
 from zoo.manifest import DataManifest
 from zoo.models import SliceMetadata
+from zoo.encoding import u16_to_hu
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ class ManifestDataset(torch.utils.data.Dataset):
         if arr.ndim == 3:
             arr = arr[:, :, 0]
 
-        hu = (arr - 32768.0) * 0.1
+        hu = u16_to_hu(arr)
         wmin = level - width / 2.0
         windowed = (hu - wmin) / max(width, 1.0)
         return np.clip(windowed, 0.0, 1.0)
@@ -291,7 +292,7 @@ class ManifestEvalDataset(torch.utils.data.Dataset):
         if arr.ndim == 3:
             arr = arr[:, :, 0]
 
-        hu = (arr - 32768.0) * 0.1
+        hu = u16_to_hu(arr)
         wmin = self.window_level - self.window_width / 2.0
         windowed = (hu - wmin) / max(self.window_width, 1.0)
         return np.clip(windowed, 0.0, 1.0)

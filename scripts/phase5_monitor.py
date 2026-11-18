@@ -17,6 +17,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import sys as _sys
+_REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if _REPO_ROOT not in _sys.path:
+    _sys.path.insert(0, _REPO_ROOT)
+from zoo.encoding import u16_to_hu  # noqa: E402
+
 
 def _need(mod: str) -> None:
     raise SystemExit(
@@ -89,8 +95,8 @@ def _load_fixed_sample_tensor(
         arr = np.array(img, dtype=np.float32)
         if arr.ndim == 3:
             arr = arr[:, :, 0]
-        hu = (arr - 32768.0) * 0.1
-        
+        hu = u16_to_hu(arr)
+
         wmin = level - width / 2.0
         wmax = level + width / 2.0
         windowed = (hu - wmin) / max(width, 1.0)
