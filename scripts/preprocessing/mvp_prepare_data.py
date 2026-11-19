@@ -40,6 +40,7 @@ def index_csv_to_manifest(
     with csv_path.open("r", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            row_organs = [o for o in (row.get("organs") or "").split(";") if o]
             records.append(
                 SliceMetadata(
                     dataset=row.get("dataset", dataset_name),
@@ -49,7 +50,7 @@ def index_csv_to_manifest(
                     pixel_spacing_y=float(row.get("spacing_y", 1.0)),
                     slice_thickness=float(row.get("spacing_z", 1.0)),
                     image_path=row["png_path"],
-                    organs_present=organs,
+                    organs_present=row_organs or organs,
                     patient_id=(row.get("patient_id") or None),
                 )
             )
