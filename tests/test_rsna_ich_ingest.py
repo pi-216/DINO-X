@@ -324,7 +324,22 @@ def test_registry_entry_uses_canonical_encoding_and_terms_license() -> None:
     assert entry.preprocessing.index_csv == "index.csv"
     assert "non-commercial" in entry.license.lower()
     assert "CC-BY-SA-4.0" not in entry.license
-    assert entry.total_series == 674
+    assert entry.total_slices == 752803
+
+
+def test_workers_parallel_matches_serial(tmp_path: Path, rsna_raw: Path) -> None:
+    serial_out = tmp_path / "serial"
+    assert rsna_main(["--dicom-dir", str(rsna_raw), "--out-root", str(serial_out),
+                      "--min-slices", "1", "--workers", "1"]) == 0
+    par_out = tmp_path / "parallel"
+    assert rsna_main(["--dicom-dir", str(rsna_raw), "--out-root", str(par_out),
+                      "--min-slices", "1", "--workers", "2"]) == 0
+    serial_rows = _read_index(serial_out / "rsna-ich" / "index.csv")
+    par_rows = _read_index(par_out / "rsna-ich" / "index.csv")
+    strip = lambda rows: [{k: v for k, v in r.items() if k != "png_path"} for r in rows]
+    assert strip(par_rows) == strip(serial_rows)
+    for r in par_rows:
+        assert Path(r["png_path"]).is_file()
 
 
 def test_main_exit_codes_on_bad_inputs(tmp_path: Path) -> None:

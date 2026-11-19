@@ -28,6 +28,7 @@ Usage:
     python scripts/preprocessing/preprocess_rsna_ich.py \
         --dicom-dir data/rsna-ich/raw \
         --out-root data/processed \
+        --workers 8 \
         --manifest-out data/manifests/rsna_ich.parquet
 """
 
@@ -36,8 +37,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import multiprocessing as mp
 import os
 import sys
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -215,11 +218,11 @@ def _row_for(
 def _reindex_existing(
     series_dir: Path,
     series_name: str,
-    writer: csv.writer,
-) -> tuple[int, tuple[float, float, float] | None]:
+) -> tuple[int, tuple[float, float, float] | None, list[list[str]]]:
+    rows: list[list[str]] = []
     meta_file = _meta_path(series_dir)
     if not meta_file.exists():
-        return 0, None
+        return 0, None, rows
     meta = json.loads(meta_file.read_text())
     spacing = tuple(meta["spacing"])
     n = 0
@@ -228,11 +231,11 @@ def _reindex_existing(
             idx = int(p.stem.split("_", 1)[1])
         except ValueError:
             continue
-        writer.writerow(_row_for(
+        rows.append(_row_for(
             p, series_name, idx, spacing, meta["patient_id"],
         ))
         n += 1
-    return n, spacing
+    return n, spacing, rows
 
 
 def process_series(
@@ -240,11 +243,11 @@ def process_series(
     entries: list[SliceEntry],
     out_root: Path,
     dataset_name: str,
-    writer: csv.writer,
     min_slices: int = 3,
     force: bool = False,
-) -> tuple[int, tuple[float, float, float] | None]:
+) -> tuple[int, tuple[float, float, float] | None, list[list[str]]]:
     study, series = key
+    rows: list[list[str]] = []
     seen_sop: set[str] = set()
     unique: list[SliceEntry] = []
     for e in sorted(entries, key=lambda e: (e.sort_z, e.instance, str(e.path))):
@@ -257,21 +260,21 @@ def process_series(
     if unique and unique[0].modality != "CT":
         print(f"skip=true series={series} reason=non_ct_modality "
               f"modality={unique[0].modality} files={len(unique)}")
-        return 0, None
+        return 0, None, rows
 
     series_name = f"{dataset_name}_{study}_{series}"
     out_series_dir = out_root / dataset_name / series_name
 
     if not force and out_series_dir.exists():
-        n, spacing = _reindex_existing(out_series_dir, series_name, writer)
+        n, spacing, reindex_rows = _reindex_existing(out_series_dir, series_name)
         if n > 0:
             print(f"skip=true series={series} reason=already_converted slices={n}")
-            return n, spacing
+            return n, spacing, reindex_rows
 
     if len(unique) < min_slices:
         print(f"skip=true series={series} reason=too_few_slices "
               f"slices={len(unique)}")
-        return 0, None
+        return 0, None, rows
 
     spacing = series_spacing(unique)
     patient_id = unique[0].patient_id
@@ -292,12 +295,12 @@ def process_series(
             continue
         out_path = out_series_dir / f"slice_{n_slices:04d}.png"
         save_slice_hu16(hu, out_path)
-        writer.writerow(_row_for(out_path, series_name, n_slices, spacing, patient_id))
+        rows.append(_row_for(out_path, series_name, n_slices, spacing, patient_id))
         n_slices += 1
 
     if n_slices == 0:
         print(f"skip=true series={series} reason=no_decodable_slices")
-        return 0, None
+        return 0, None, rows
 
     _meta_path(out_series_dir).write_text(json.dumps({
         "spacing": list(spacing),
@@ -310,7 +313,11 @@ def process_series(
     }))
     print(f"ok=true series={series} slices={n_slices} "
           f"spacing=({spacing[0]:.3f}, {spacing[1]:.3f}, {spacing[2]:.3f})")
-    return n_slices, spacing
+    return n_slices, spacing, rows
+
+
+def _ingest_job(job: tuple) -> tuple:
+    return process_series(*job)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -334,6 +341,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="Comma-separated organs recorded in the manifest")
     ap.add_argument("--force", action="store_true",
                     help="Reprocess series even if output already exists")
+    ap.add_argument("--workers", type=int, default=8,
+                    help="Parallel processes for series conversion (1 = serial)")
     args = ap.parse_args(argv)
 
     dicom_dir = args.dicom_dir
@@ -358,14 +367,23 @@ def main(argv: list[str] | None = None) -> int:
     total_series = 0
     spacings: list[tuple[float, float, float]] = []
 
+    jobs = [(k, groups[k], args.out_root, args.dataset_name,
+             args.min_slices, args.force) for k in sorted(groups)]
+
     with index_path.open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(INDEX_COLUMNS)
-        for key in sorted(groups):
-            n, spacing = process_series(
-                key, groups[key], args.out_root, args.dataset_name, w,
-                min_slices=args.min_slices, force=args.force,
-            )
+        if args.workers == 1:
+            results = [_ingest_job(job) for job in jobs]
+        else:
+            with ProcessPoolExecutor(
+                    max_workers=args.workers,
+                    mp_context=mp.get_context("forkserver"),
+                ) as pool:
+                results = list(pool.map(_ingest_job, jobs))
+        for n, spacing, rows in results:
+            for row in rows:
+                w.writerow(row)
             if n > 0:
                 total_slices += n
                 total_series += 1

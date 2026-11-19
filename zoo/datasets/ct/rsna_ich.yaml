@@ -4,18 +4,23 @@ organs:
   - brain
   - intracranial
 source_url: https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/data
+s3_archive_url: https://intracranial-hemorrhage.s3.us-west-2.amazonaws.com/rsna-ihd-dataset.zip
+registry_of_open_data_url: https://registry.opendata.aws/rsna-intracranial-hemorrhage-detection
 license: >-
   RSNA Intracranial Hemorrhage Detection Challenge Terms of Use
   (non-commercial research and education only)
 license_url: https://www.rsna.org/-/media/files/rsna/education/ai-resources-and-training/ai-image-challenge/rsna_ich_ai_challenge_2019_terms_of_use_and_attribution_final.pdf
 redistribution: restricted
 redistribution_note: >
-  Kaggle hosts the data under "Subject to Competition Rules"; download
-  requires entering the competition (rules acceptance in a browser).
-  The Terms of Use restrict use to academic research, education and
-  other non-commercial purposes, and require attribution (challenge
-  dataset link plus the Flanders et al. 2020 citation) on any
-  redistribution. Users must download from Kaggle directly.
+  The RSNA terms (Registry of Open Data on AWS entry) permit access and
+  use for non-commercial purposes only, forbid attempting to re-identify
+  subjects, and forbid sharing or redistributing any portion of the data
+  in any form; published material must cite the Brain CT Hemorrhage
+  Dataset (Flanders AE, et al. Radiology: Artificial Intelligence
+  2020;2:3). The Kaggle competition page additionally gates download on
+  entering the competition, but the Kaggle file API for this competition
+  returns empty/404 listings, so the RSNA-managed S3 archive above is
+  the ingest source of record.
 attribution_required: true
 attribution: >
   RSNA Intracranial Hemorrhage Detection Challenge (2019), Kaggle.
@@ -23,8 +28,8 @@ attribution: >
   Shih G, et al. Construction of a Machine Learning Dataset through
   Collaboration: The RSNA 2019 Brain CT Hemorrhage Challenge.
   Radiology: Artificial Intelligence 2020;2:3.
-total_slices: 41450
-total_series: 674
+total_slices: 752803
+total_series: 0
 pixel_spacing_range: [0.3, 0.7]
 slice_thickness_range: [1.0, 5.0]
 hu_range: [-1024, 3071]
@@ -44,13 +49,20 @@ citation: >
   RSNA Intracranial Hemorrhage Detection Challenge. Kaggle.
   https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection
 notes: >
-  Massive neuro CT dataset from RSNA 2019 challenge. 674 stage-1 training
-  series with ~61 slices/scan average. Six hemorrhage subtypes annotated.
-  Critical for cranial anatomy coverage — fills the gap above the neck in
-  pan-organ training. DICOM format with standard head CT protocols.
-  Variable slice thickness provides excellent ScaleEmbedding anchor points
-  for cranial imaging. Stage-1 DICOM ships as one flat directory of
-  <study>-<series>-<slice>.dcm files; ingest groups series from DICOM
-  header UIDs and decodes HU via RescaleSlope/Intercept before the
-  canonical hu16 encoding. Download is gated on Kaggle competition rule
-  acceptance (scripts/preprocessing/download_rsna_ich.sh --check).
+  Canonical RSNA Brain CT Hemorrhage corpus: the stage-2 archive
+  (25,272 exams, 752,803 stage_2_train slices, patients named ID_*,
+  six hemorrhage subtypes annotated in stage_2_train.csv; a further
+  121,232 unlabeled stage_2_test slices are NOT ingested). The 674-
+  series stage-1 debug subset cited in the original ticket no longer
+  exists in Kaggle's listing — Kaggle's data explorer now serves the
+  same 874,037-file stage-2 corpus as the RSNA S3 archive. Critical for
+  cranial anatomy coverage — fills the gap above the neck in pan-organ
+  training. DICOM format with standard head CT protocols; variable
+  slice thickness provides excellent ScaleEmbedding anchor points for
+  cranial imaging. Ingest range-extracts only the stage_2_train members
+  of the Zip64 archive via scripts/preprocessing/fetch_rsna_ich_s3.py
+  (resumable, CRC-verified), groups series from DICOM header UIDs and
+  decodes HU via RescaleSlope/Intercept before the canonical hu16
+  encoding (scripts/preprocessing/download_rsna_ich.sh --check reports
+  the census; total_series stays 0 until the processed corpus is
+  measured).
