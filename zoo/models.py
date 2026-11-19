@@ -17,7 +17,7 @@ class PreprocessingConfig(BaseModel):
     """How raw data has been converted to training-ready format."""
 
     format: Literal["png_16bit", "png_8bit", "npy", "nifti"] = "png_16bit"
-    encoding: Literal["hu16", "zscore16"] = "hu16"
+    encoding: Literal["hu16", "zscore16", "norm16"] = "hu16"
     hu_shift: int = 32768
     scale: int = 10
     index_csv: str = ""

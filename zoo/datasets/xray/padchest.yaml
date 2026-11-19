@@ -1,0 +1,38 @@
+name: padchest
+modality: xray
+organs:
+  - chest
+  - lung
+source_url: https://bimcv.cipf.es/bimcv-projects/padchest/
+license: PadChest Dataset Research Use Agreement (BIMCV)
+license_url: https://bimcv.cipf.es/bimcv-projects/padchest/padchest-dataset-research-use-agreement
+redistribution: prohibited
+redistribution_note: >
+  The research use agreement forbids distributing or reproducing any
+  portion of the dataset, including download links; non-academic use
+  requires case-by-case BIMCV approval. Processed slices must not be
+  mirrored.
+attribution_required: true
+attribution: >
+  Bustos A, Pertusa A, Salinas JM, de la Iglesia-Vayá M. PadChest: A
+  large chest x-ray image dataset with multi-label annotated reports.
+  Universidad de Alicante / BIMCV / Hospital San Juan de Alicante.
+total_slices: 160406
+total_series: 60438
+annotations:
+  - multi_label_findings_hierarchical_umls
+  - radiology_reports_spanish
+preprocessing:
+  format: png_16bit
+  encoding: norm16
+  index_csv: index.csv
+citation: >
+  Bustos A, Pertusa A, Salinas JM, de la Iglesia-Vayá M. PadChest: A
+  large chest x-ray image dataset with multi-label annotated reports.
+  Medical Image Analysis. 2020;66:101797. arXiv:1901.07441.
+notes: >
+  160,406 chest radiographs from 60,438 studies (~67,000 patients) at
+  Hospital San Juan de Alicante, Spain (2009-2017), in six position
+  views, with reports labeled by a 174-finding hierarchical taxonomy
+  mapped to UMLS. DICOM distribution; in-plane spacing is read at
+  ingest time and slice thickness written 0.0.

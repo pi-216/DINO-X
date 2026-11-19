@@ -26,16 +26,27 @@ in sigma units::
 Sigma units fit uint16 with headroom ([-327.68, 327.67] storable); the
 [-300, 300] clip is a pre-scale guard so no value can reach the uint16 edge.
 
+Canonical X-ray (`norm16_png`): radiograph pixel data is optical density,
+which is display-scaled and not calibrated, so each image is min-max
+normalized to [0, 1] and stored across the full uint16 range::
+
+    encode:  u16 = round(clip(v, 0, 1) * 65535)
+    decode:  v   = u16 / 65535
+
 Usage::
 
     from zoo.encoding import hu_to_u16, u16_to_hu
     from zoo.encoding import zscore_to_u16, u16_to_zscore, zscore_encoding_token
+    from zoo.encoding import norm01_to_u16, u16_to_norm01, norm01_encoding_token
 
     u16 = hu_to_u16(hu_array)     # float HU -> uint16 PNG pixels
     hu  = u16_to_hu(u16_array)    # uint16 PNG pixels -> float HU
 
     u16 = zscore_to_u16(z_array)  # float z-scores -> uint16 PNG pixels
     z   = u16_to_zscore(u16_arr)  # uint16 PNG pixels -> float z-scores
+
+    u16 = norm01_to_u16(v_array)  # float [0,1] optical density -> uint16 PNG
+    v   = u16_to_norm01(u16_arr)  # uint16 PNG pixels -> float [0,1]
 """
 
 from __future__ import annotations
@@ -114,4 +125,46 @@ def zscore_encoding_token() -> str:
     return (
         f"zscore16_u16_offset{Z_OFFSET}_scale{int(Z_SCALE)}"
         f"_clip{int(Z_CLIP_LO)}_{int(Z_CLIP_HI)}"
+    )
+
+
+NORM_CLIP_LO = 0.0
+NORM_CLIP_HI = 1.0
+NORM_SCALE = 65535.0
+
+
+def norm01_to_u16(img_norm: np.ndarray) -> np.ndarray:
+    """Convert a float [0, 1] array to uint16 for 16-bit PNG storage.
+
+    Args:
+        img_norm: Array of normalized intensities (float, typically
+            per-image min-max normalized optical density).
+
+    Returns:
+        uint16 array in the canonical `norm16_png` encoding. Values beyond
+        the clip bounds saturate at the bound rather than wrapping.
+    """
+    x = np.clip(img_norm, NORM_CLIP_LO, NORM_CLIP_HI)
+    x = np.rint(x * NORM_SCALE)
+    x = np.clip(x, 0, 65535)
+    return x.astype(np.uint16)
+
+
+def u16_to_norm01(arr: np.ndarray) -> np.ndarray:
+    """Convert a uint16 `norm16_png` array (or any int array) to float [0, 1].
+
+    Args:
+        arr: uint16 (or int) array of encoded pixels.
+
+    Returns:
+        float32 array of normalized intensities in [0, 1].
+    """
+    return arr.astype(np.float32) / NORM_SCALE
+
+
+def norm01_encoding_token() -> str:
+    """Encoding token written to index CSVs for `norm16_png` slices."""
+    return (
+        f"norm16_u16_scale{int(NORM_SCALE)}"
+        f"_clip{int(NORM_CLIP_LO)}_{int(NORM_CLIP_HI)}"
     )

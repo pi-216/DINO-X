@@ -1,0 +1,36 @@
+name: mimic-cxr
+modality: xray
+organs:
+  - chest
+  - lung
+source_url: https://physionet.org/content/mimic-cxr/
+license: PhysioNet Credentialed Health Data License 1.5.0
+license_url: https://physionet.org/content/mimic-cxr/view-license/2.1.0/
+redistribution: prohibited
+redistribution_note: >
+  Credentialed access only: PhysioNet credentialing, CITI Data or
+  Specimens Only Research training, and a signed Data Use Agreement.
+  Processed slices must not be mirrored.
+attribution_required: true
+attribution: >
+  Johnson A, Pollard T, Mark R, Berkowitz S, Horng S. MIMIC-CXR
+  Database (version 2.1.0). PhysioNet 2024.
+  https://doi.org/10.13026/4jqj-jw95
+total_slices: 377110
+total_series: 227835
+annotations:
+  - radiology_reports
+preprocessing:
+  format: png_16bit
+  encoding: norm16
+  index_csv: index.csv
+citation: >
+  Johnson AEWW, Pollard TJ, Berkowitz SJ, et al. MIMIC-CXR, a
+  de-identified publicly available database of chest radiographs with
+  free-text reports. Scientific Data. 2019;6:317.
+notes: >
+  377,110 chest radiographs from 227,835 studies at Beth Israel
+  Deaconess Medical Center (2011-2016), DICOM, de-identified to HIPAA
+  Safe Harbor. In-plane spacing is read from DICOM (0028,0030) at
+  ingest time; slice thickness is written 0.0. CheXpert-style labels
+  ship in the linked MIMIC-CXR-JPG metadata tables.
