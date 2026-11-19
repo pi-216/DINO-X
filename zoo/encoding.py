@@ -92,6 +92,13 @@ def u16_to_hu(arr: np.ndarray) -> np.ndarray:
     return (arr.astype(np.float32) - float(HU_OFFSET)) * (1.0 / HU_SCALE)
 
 
+def hu_encoding_token() -> str:
+    """Encoding token written to index CSVs for `hu16_png` slices."""
+    return (
+        f"hu16_i16_offset{HU_OFFSET}_clip{int(HU_CLIP_LO)}_{int(HU_CLIP_HI)}"
+    )
+
+
 def zscore_to_u16(img_z: np.ndarray) -> np.ndarray:
     """Convert a float z-score array to uint16 for 16-bit PNG storage.
 

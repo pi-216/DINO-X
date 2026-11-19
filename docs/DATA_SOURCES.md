@@ -19,9 +19,9 @@ All datasets are registered in `zoo/datasets/ct/*.yaml` and queryable via `zoo/r
 | 4 | `msd-colon` | Colon | 13,486 | 126 | [Medical Segmentation Decathlon](http://medicaldecathlon.com/) | CC-BY-SA-4.0 | Allowed (SA) |
 | 5 | `msd-hepatic-vessel` | Liver, Hepatic Vessels | 21,120 | 303 | [Medical Segmentation Decathlon](http://medicaldecathlon.com/) | CC-BY-SA-4.0 | Allowed (SA) |
 | 6 | `mayo-ldct` | Chest, Lung, Abdomen, Head | 25,000 | 299 | [TCIA](https://www.cancerimagingarchive.net/collection/ldct-and-projection-data/) | CC-BY-3.0 | Prohibited |
-| 7 | `rsna-ich` | Brain, Intracranial | 41,450 | 674 | [Kaggle RSNA 2019](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection) | CC-BY-SA-4.0 | Restricted |
+| 7 | `rsna-ich` | Brain, Intracranial | 41,450 | 674 | [Kaggle RSNA 2019](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection) | Challenge Terms of Use (non-commercial) | Restricted |
 
-**Not yet used in training:** `mayo-ldct`, `rsna-ich` — registered but not included in any combined index CSV.
+**Not yet used in training:** `mayo-ldct`, `rsna-ich` — registered but not included in any combined index CSV. The `rsna-ich` ingest pipeline (`scripts/preprocessing/preprocess_rsna_ich.py`, `download_rsna_ich.sh`) is in the tree; the raw Kaggle download is gated on the competition rules being accepted by the Kaggle account (browser-only step) — run `download_rsna_ich.sh --check` for current status.
 
 ### Spacing Ranges
 
