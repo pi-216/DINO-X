@@ -7,9 +7,10 @@ into a single CSV with a ``dataset`` column. Optionally subsamples by series cou
 The output CSV is directly consumable by ``phase5_big_run.py`` with ``--scale-aware``.
 MRI index CSVs additionally carry ``patient_id`` and ``sequence`` columns which
 pass through into the combined CSV. Combining different intensity-encoding
-families (CT ``hu16`` with MRI ``zscore16``) is refused unless
+families (CT ``hu16``, MRI ``zscore16`` or X-ray ``norm16``) is refused unless
 ``--allow-mixed-encoding`` is set: the current windowing recipe decodes every
-row as HU, so a mixed corpus would silently train on misdecoded MRI slices.
+row as HU, so a mixed corpus would silently train on misdecoded MRI or
+radiograph slices.
 
 Usage:
   python mvp_combine_indices.py \
@@ -142,7 +143,8 @@ def main() -> int:
     if len(families) > 1 and not args.allow_mixed_encoding:
         print(
             f"ERROR: mixed intensity encoding families in one corpus: "
-            f"{sorted(families)}. CT (hu16) and MRI (zscore16) need separate "
+            f"{sorted(families)}. CT (hu16), MRI (zscore16) and X-ray "
+            f"(norm16) need separate "
             f"training corpora and windowing recipes; pass --allow-mixed-encoding "
             f"only when the consumer decodes per-row encodings.",
             file=sys.stderr,
