@@ -19,9 +19,9 @@ attribution: >
   CQ500 dataset by Qure.ai. Cite Chilamkurthy et al. (2018, The Lancet).
   Original data: http://headctstudy.qure.ai/
   Kaggle mirror: https://www.kaggle.com/datasets/crawford/qureai-headct
-total_slices: 193317
-total_series: 491
-pixel_spacing_range: [0.3, 0.7]
+total_slices: 165265
+total_series: 1223
+pixel_spacing_range: [0.213, 0.977]
 slice_thickness_range: [0.5, 5.0]
 hu_range: [-1024, 3071]
 annotations:
@@ -31,8 +31,7 @@ annotations:
   - midline_shift
 preprocessing:
   format: png_16bit
-  hu_shift: 32768
-  scale: 10
+  encoding: hu16
   index_csv: index.csv
 citation: >
   Chilamkurthy S, et al. Deep learning algorithms for detection of
@@ -45,4 +44,15 @@ notes: >
   scanner protocols — exactly what a self-supervised model needs to
   prevent overfitting to a single scanner type. Multi-protocol head
   CT with wide slice thickness range (0.5–5.0mm). DICOM format (26.6 GB).
-  Original site offline; now hosted on Kaggle.
+  Original site offline; now hosted on Kaggle. Ingest:
+  scripts/preprocessing/download_cq500.sh fetches the Kaggle mirror
+  (--check probe exits 3 when the Kaggle API token is missing);
+  preprocess_cq500.py writes canonical hu16 slices and index.csv to
+  data/processed/cq500/ plus a Parquet manifest at
+  data/manifests/cq500.parquet. Ingested 2026-11-19 from raw DICOM:
+  165,265 slices / 1,223 series / 473 patients; measured spacings
+  0.213-0.977mm in-plane, 0.312-7.500mm z. The 2026-04 corpus under
+  /mnt/nas-ai-models/training-data/dino-x/cq500/processed-hu16/
+  predates the canonical hu16 scale fix — its pixels store HU+32768
+  without the x10 scale, its index claims the hu16 token and carries
+  no patient_id column — and is NOT consumable (quarantine: #36).

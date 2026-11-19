@@ -2,7 +2,7 @@
 
 > **Purpose:** Every model trained in this project, every dataset used, and the exact provenance chain from raw DICOM to training index. This document is the single source of truth for data lineage.
 
-**Last updated:** 2026-07-28
+**Last updated:** 2026-11-19
 **Governance:** `docs/experiment-structure.md`, `AGENTS.md`
 
 ---
@@ -15,7 +15,7 @@ All datasets are registered in `zoo/datasets/ct/*.yaml` and queryable via `zoo/r
 |---|------|----------|-------------|--------|--------|---------|----------------|
 | 1 | `lidc-idri` | Lung | 243,990 | 981 | [TCIA](https://wiki.cancerimagingarchive.net/display/Public/LIDC-IDRI) | CC-BY-NC-3.0 | Prohibited |
 | 2 | `pancreas-ct` | Pancreas, Abdomen | 17,764 | 75 | [TCIA](https://wiki.cancerimagingarchive.net/display/Public/Pancreas-CT) | CC-BY-3.0 | Prohibited |
-| 3 | `cq500` | Brain, Cranial | 193,317 | 491 | [Qure.ai / Kaggle](https://www.kaggle.com/datasets/crawford/qureai-headct) | CC-BY-SA-4.0 | Allowed (SA) |
+| 3 | `cq500` | Brain, Cranial | 165,265 | 1,223 | [Qure.ai / Kaggle](https://www.kaggle.com/datasets/crawford/qureai-headct) | CC-BY-SA-4.0 | Allowed (SA) |
 | 4 | `msd-colon` | Colon | 13,486 | 126 | [Medical Segmentation Decathlon](http://medicaldecathlon.com/) | CC-BY-SA-4.0 | Allowed (SA) |
 | 5 | `msd-hepatic-vessel` | Liver, Hepatic Vessels | 21,120 | 303 | [Medical Segmentation Decathlon](http://medicaldecathlon.com/) | CC-BY-SA-4.0 | Allowed (SA) |
 | 6 | `mayo-ldct` | Chest, Lung, Abdomen, Head | 25,000 | 299 | [TCIA](https://www.cancerimagingarchive.net/collection/ldct-and-projection-data/) | CC-BY-3.0 | Prohibited |
@@ -23,13 +23,22 @@ All datasets are registered in `zoo/datasets/ct/*.yaml` and queryable via `zoo/r
 
 **Not yet used in training:** `mayo-ldct`, `rsna-ich` — registered but not included in any combined index CSV. The `rsna-ich` ingest pipeline (`scripts/preprocessing/preprocess_rsna_ich.py`, `download_rsna_ich.sh`) is in the tree; the raw Kaggle download is gated on the competition rules being accepted by the Kaggle account (browser-only step) — run `download_rsna_ich.sh --check` for current status.
 
+**CQ500 re-ingested 2026-11-19** (#29): canonical corpus at
+`data/processed/cq500/` (165,265 slices / 1,223 series / 473 patients,
+manifest `data/manifests/cq500.parquet`). The `combined_5dataset*.csv`
+indices (2026-04-22) still point at the pre-canonical
+`data/cq500/processed-hu16/` corpus, whose pixels store HU+32768 without
+the x10 scale — those 90K–98K CQ500 rows are mis-encoded and the index
+must be regenerated from the new corpus before any 5-dataset rerun
+(quarantine of the old corpus: #36).
+
 ### Spacing Ranges
 
 | Dataset | Pixel Spacing (mm) | Slice Thickness (mm) |
 |---------|-------------------|---------------------|
 | lidc-idri | 0.46–0.98 | 0.6–5.0 |
 | pancreas-ct | 0.66–0.98 | 0.5–1.0 |
-| cq500 | 0.30–0.70 | 0.5–5.0 |
+| cq500 | 0.21–0.98 | 0.31–7.50 (z pitch) |
 | msd-colon | 0.54–0.98 | 1.3–7.5 |
 | msd-hepatic-vessel | 0.57–0.97 | 0.8–8.0 |
 
