@@ -19,9 +19,9 @@ All datasets are registered in `zoo/datasets/ct/*.yaml` and queryable via `zoo/r
 | 4 | `msd-colon` | Colon | 13,486 | 126 | [Medical Segmentation Decathlon](http://medicaldecathlon.com/) | CC-BY-SA-4.0 | Allowed (SA) |
 | 5 | `msd-hepatic-vessel` | Liver, Hepatic Vessels | 21,120 | 303 | [Medical Segmentation Decathlon](http://medicaldecathlon.com/) | CC-BY-SA-4.0 | Allowed (SA) |
 | 6 | `mayo-ldct` | Chest, Lung, Abdomen, Head | 25,000 | 299 | [TCIA](https://www.cancerimagingarchive.net/collection/ldct-and-projection-data/) | CC-BY-3.0 | Prohibited |
-| 7 | `rsna-ich` | Brain, Intracranial | 41,450 | 674 | [Kaggle RSNA 2019](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection) | Challenge Terms of Use (non-commercial) | Restricted |
+| 7 | `rsna-ich` | Brain, Intracranial | 752,803 | 25,272 exams | [RSNA S3 archive](https://intracranial-hemorrhage.s3.us-west-2.amazonaws.com/rsna-ihd-dataset.zip) ([RODA entry](https://registry.opendata.aws/rsna-intracranial-hemorrhage-detection)) | RSNA terms (non-commercial, no redistribution) | Restricted |
 
-**Not yet used in training:** `mayo-ldct`, `rsna-ich` — registered but not included in any combined index CSV. The `rsna-ich` ingest pipeline (`scripts/preprocessing/preprocess_rsna_ich.py`, `download_rsna_ich.sh`) is in the tree; the raw Kaggle download is gated on the competition rules being accepted by the Kaggle account (browser-only step) — run `download_rsna_ich.sh --check` for current status.
+**Not yet used in training:** `mayo-ldct`, `rsna-ich` — registered but not included in any combined index CSV. The `rsna-ich` ingest pipeline (`scripts/preprocessing/fetch_rsna_ich_s3.py`, `preprocess_rsna_ich.py`, `download_rsna_ich.sh`) is in the tree; run `download_rsna_ich.sh --check` for current status. The Kaggle competition file API for this corpus returns empty/404 listings for automated clients, so the ingest source of record is the RSNA-managed AWS S3 archive; `fetch_rsna_ich_s3.py` range-extracts only the 752,803 `stage_2_train/*` members from the 194.7 GB Zip64 `rsna-ihd-dataset.zip` (resumable, CRC-32 verified) instead of downloading the archive.
 
 **CQ500 re-ingested 2026-11-19** (#29): canonical corpus at
 `data/processed/cq500/` (165,265 slices / 1,223 series / 473 patients,
@@ -252,7 +252,7 @@ These datasets are registered in the YAML catalog but have **not been used** in 
 | Dataset | Reason |
 |---------|--------|
 | `mayo-ldct` | Low-dose CT, multi-body-part. Registered for future scanner-hardware invariance experiments. |
-| `rsna-ich` | Brain hemorrhage (41K slices). Registered for future cranial specialist models. |
+| `rsna-ich` | Brain hemorrhage (752,803 stage-2 train slices / 25,272 exams, six hemorrhage subtypes). Registered for future cranial specialist models; corpus fetch in progress (#28). |
 
 ---
 
