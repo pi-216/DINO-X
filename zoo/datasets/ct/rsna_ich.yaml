@@ -4,17 +4,25 @@ organs:
   - brain
   - intracranial
 source_url: https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/data
-license: CC-BY-SA-4.0
-license_url: https://creativecommons.org/licenses/by-sa/4.0/
+license: >-
+  RSNA Intracranial Hemorrhage Detection Challenge Terms of Use
+  (non-commercial research and education only)
+license_url: https://www.rsna.org/-/media/files/rsna/education/ai-resources-and-training/ai-image-challenge/rsna_ich_ai_challenge_2019_terms_of_use_and_attribution_final.pdf
 redistribution: restricted
 redistribution_note: >
-  While CC-BY-SA-4.0, this data originates from a Kaggle competition.
-  Kaggle competition rules may impose additional restrictions on
-  redistribution. Users should download from Kaggle directly.
+  Kaggle hosts the data under "Subject to Competition Rules"; download
+  requires entering the competition (rules acceptance in a browser).
+  The Terms of Use restrict use to academic research, education and
+  other non-commercial purposes, and require attribution (challenge
+  dataset link plus the Flanders et al. 2020 citation) on any
+  redistribution. Users must download from Kaggle directly.
 attribution_required: true
 attribution: >
-  RSNA Intracranial Hemorrhage Detection Challenge (2019).
-  Original data: https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection
+  RSNA Intracranial Hemorrhage Detection Challenge (2019), Kaggle.
+  Required citation per the Terms of Use: Flanders AE, Prevedello LM,
+  Shih G, et al. Construction of a Machine Learning Dataset through
+  Collaboration: The RSNA 2019 Brain CT Hemorrhage Challenge.
+  Radiology: Artificial Intelligence 2020;2:3.
 total_slices: 41450
 total_series: 674
 pixel_spacing_range: [0.3, 0.7]
@@ -29,17 +37,20 @@ annotations:
   - subarachnoid
 preprocessing:
   format: png_16bit
-  hu_shift: 32768
-  scale: 10
-  index_csv: _index/index.csv
+  encoding: hu16
+  index_csv: index.csv
 citation: >
   Radiological Society of North America & MD.ai (2019).
   RSNA Intracranial Hemorrhage Detection Challenge. Kaggle.
   https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection
 notes: >
-  Massive neuro CT dataset from RSNA 2019 challenge. 674 training
-  patients with ~61 slices/scan average. Six hemorrhage subtypes
-  annotated. Critical for cranial anatomy coverage — fills the gap
-  above the neck in pan-organ training. DICOM format with standard
-  head CT protocols. Variable slice thickness provides excellent
-  ScaleEmbedding anchor points for cranial imaging.
+  Massive neuro CT dataset from RSNA 2019 challenge. 674 stage-1 training
+  series with ~61 slices/scan average. Six hemorrhage subtypes annotated.
+  Critical for cranial anatomy coverage — fills the gap above the neck in
+  pan-organ training. DICOM format with standard head CT protocols.
+  Variable slice thickness provides excellent ScaleEmbedding anchor points
+  for cranial imaging. Stage-1 DICOM ships as one flat directory of
+  <study>-<series>-<slice>.dcm files; ingest groups series from DICOM
+  header UIDs and decodes HU via RescaleSlope/Intercept before the
+  canonical hu16 encoding. Download is gated on Kaggle competition rule
+  acceptance (scripts/preprocessing/download_rsna_ich.sh --check).
