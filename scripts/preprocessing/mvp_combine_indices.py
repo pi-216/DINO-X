@@ -5,6 +5,12 @@ Merges index CSVs from multiple processed datasets (e.g., LIDC-IDRI + Pancreas-C
 into a single CSV with a ``dataset`` column. Optionally subsamples by series count.
 
 The output CSV is directly consumable by ``phase5_big_run.py`` with ``--scale-aware``.
+MRI index CSVs additionally carry ``patient_id`` and ``sequence`` columns which
+pass through into the combined CSV. Combining different intensity-encoding
+families (CT ``hu16``, MRI ``zscore16`` or X-ray ``norm16``) is refused unless
+``--allow-mixed-encoding`` is set: the current windowing recipe decodes every
+row as HU, so a mixed corpus would silently train on misdecoded MRI or
+radiograph slices.
 
 Usage:
   python mvp_combine_indices.py \
@@ -41,11 +47,9 @@ def load_index(
         print(f"WARNING: {path} is empty", file=sys.stderr)
         return []
 
-    # Tag each row with dataset name
     for row in rows:
         row["dataset"] = dataset_name
 
-    # Subsample by series
     if max_series > 0:
         all_series = sorted({r["series_dir"] for r in rows})
         if len(all_series) > max_series:
@@ -63,6 +67,11 @@ def load_index(
     return rows
 
 
+def encoding_family(encoding: str) -> str:
+    """Intensity-encoding family of an index row (e.g. hu16, zscore16)."""
+    return encoding.split("_", 1)[0]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Combine dataset index CSVs")
     ap.add_argument(
@@ -73,6 +82,8 @@ def main() -> int:
     ap.add_argument("--max-series-per-dataset", type=int, default=0,
                     help="Max series to sample per dataset (0 = all)")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--allow-mixed-encoding", action="store_true",
+                    help="Allow combining datasets with different intensity encodings")
     ap.add_argument("--require-spacing", action="store_true", default=True,
                     help="Fail if any input is missing spacing columns (default: true)")
     ap.add_argument("--no-require-spacing", action="store_false", dest="require_spacing",
@@ -80,9 +91,11 @@ def main() -> int:
     args = ap.parse_args()
 
     all_rows: list[dict[str, str]] = []
+    families: set[str] = set()
     output_columns = [
         "png_path", "series_dir", "slice_index", "encoding",
         "spacing_x", "spacing_y", "spacing_z", "dataset",
+        "patient_id", "sequence",
     ]
 
     for input_spec in args.inputs:
@@ -98,7 +111,8 @@ def main() -> int:
 
         rows = load_index(path, name, max_series=args.max_series_per_dataset, seed=args.seed)
 
-        # Validate or fill spacing columns
+        families.update(encoding_family(r.get("encoding", "")) for r in rows)
+
         if rows:
             has_spacing = all(
                 k in rows[0] and rows[0][k] != ""
@@ -126,14 +140,23 @@ def main() -> int:
         print("ERROR: no rows collected", file=sys.stderr)
         return 1
 
-    # Write combined CSV
+    if len(families) > 1 and not args.allow_mixed_encoding:
+        print(
+            f"ERROR: mixed intensity encoding families in one corpus: "
+            f"{sorted(families)}. CT (hu16), MRI (zscore16) and X-ray "
+            f"(norm16) need separate "
+            f"training corpora and windowing recipes; pass --allow-mixed-encoding "
+            f"only when the consumer decodes per-row encodings.",
+            file=sys.stderr,
+        )
+        return 1
+
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=output_columns, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(all_rows)
 
-    # Summary
     datasets = {}
     for r in all_rows:
         ds = r["dataset"]

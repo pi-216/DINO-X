@@ -19,9 +19,9 @@ import csv
 import sys
 from pathlib import Path
 
-# Ensure repo root is on sys.path so `zoo` package is importable
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from zoo.lineage import record_lineage
 from zoo.manifest import DataManifest
@@ -40,6 +40,7 @@ def index_csv_to_manifest(
     with csv_path.open("r", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            row_organs = [o for o in (row.get("organs") or "").split(";") if o]
             records.append(
                 SliceMetadata(
                     dataset=row.get("dataset", dataset_name),
@@ -49,7 +50,8 @@ def index_csv_to_manifest(
                     pixel_spacing_y=float(row.get("spacing_y", 1.0)),
                     slice_thickness=float(row.get("spacing_z", 1.0)),
                     image_path=row["png_path"],
-                    organs_present=organs,
+                    organs_present=row_organs or organs,
+                    patient_id=(row.get("patient_id") or None),
                 )
             )
 
@@ -80,7 +82,6 @@ def main() -> int:
     out_dir = args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # --- Build per-dataset manifests ---
     print("Building LIDC-IDRI manifest ...")
     lidc = index_csv_to_manifest(args.lidc_index, "lidc-idri", ["lung"])
     print(f"  {len(lidc)} slices, spacing stats:")
@@ -103,7 +104,6 @@ def main() -> int:
 
     pancreas.save(out_dir / "pancreas_ct_manifest.parquet")
 
-    # --- Merge datasets ---
     print(f"\nMerging with weights: LIDC={args.lidc_weight}, Pancreas={args.pancreas_weight}")
     merger = DatasetMerger()
     merger.add(lidc, weight=args.lidc_weight)
@@ -118,7 +118,6 @@ def main() -> int:
     for u in usage:
         print(f"  {u.name}: {u.slices_used} slices (weight={u.weight:.2f})")
 
-    # --- Record lineage ---
     print("\nRecording training lineage ...")
     lineage = record_lineage(
         model_name="dinox-ct-vit-small-mvp",

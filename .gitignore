@@ -11,8 +11,13 @@ rocm-wheels/
 # Local logs / captures
 *.log
 
-# Medical data (never commit raw medical data or derived datasets)
-data/
+# Medical data (never commit raw medical data or derived datasets).
+# The de-identified LIDC patient-holdout split manifest is governance
+# metadata (patient IDs + series dirs, no pixels) and IS tracked.
+data/*
+!data/mvp/
+data/mvp/*
+!data/mvp/split_manifest_lidc_patientholdout.json
 
 # Common medical imaging formats (raw)
 *.dcm

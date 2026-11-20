@@ -1,0 +1,42 @@
+name: chexpert
+modality: xray
+organs:
+  - chest
+  - lung
+source_url: https://stanfordmlgroup.github.io/competitions/chexpert/
+license: Stanford Terms of Use - personal, non-commercial, non-clinical research only
+license_url: https://stanfordmlgroup.github.io/competitions/chexpert/
+redistribution: prohibited
+redistribution_note: >
+  Stanford distributes the images under its dataset terms for
+  non-commercial research use only; processed slices must not be
+  mirrored. A small demo subset is published separately for pipeline
+  validation.
+attribution_required: true
+attribution: >
+  Irvin J, Rajpurkar P, Ko M, et al. CheXpert: A Large Chest Radiograph
+  Dataset with Uncertainty Labels and Expert Comparison. AAAI 2019.
+  Stanford AIMI DOI https://doi.org/10.71718/y7pj-4v93.
+total_slices: 224316
+total_series: 0
+annotations:
+  - pathology_labels_14
+  - radiology_reports
+preprocessing:
+  format: png_16bit
+  encoding: norm16
+  index_csv: index.csv
+citation: >
+  Irvin J, Rajpurkar P, Ko M, Yu Y, Ciurea-Ilcus S, Chute C, Marklund H,
+  et al. CheXpert: A Large Chest Radiograph Dataset with Uncertainty
+  Labels and Expert Comparison. Proceedings of the AAAI Conference on
+  Artificial Intelligence. 2019;33:1533-1540. arXiv:1901.07031.
+notes: >
+  224,316 chest radiographs from 65,240 patients at Stanford Health
+  Care (2002-2017), labeled for 14 thoracic observations by NegEx
+  report parsing; the 500-study test set carries radiologist labels.
+  Distributed as 8-bit PNGs (train/PatientNNNNN/studyN_view.png),
+  downsampled from the original PACS images, so no pixel spacing
+  metadata exists: ingest defaults spacing to 1.0 and writes
+  slice thickness 0.0 for the ScaleEmbedding. Study counts are filled
+  in by scripts/preprocessing/preprocess_xray.py at ingest time.

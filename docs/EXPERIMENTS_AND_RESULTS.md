@@ -805,7 +805,7 @@ Full table: 37+ runs in `docs/experiments.csv`. Key lesson: ViT-Large Golden Zon
 
 ---
 
-## Phase 10: Release #2 — LIDC Specialist, Patient-Held-Out Retrain — `[ACTIVE]`
+## Phase 10: Release #2 — LIDC Specialist, Patient-Held-Out Retrain — `[CONCLUDED — FAIL]`
 
 **Date:** 2026-10-01
 **Arm:** `lidc-specialist-vit-base-patient-holdout`
@@ -875,15 +875,98 @@ Caveat: the per-checkpoint Gram/std monitors (Gram 0.992–0.999, std 0.030–0.
 proxies; they were previously misread in this session as a cleanliness verdict and they do
 **not** establish representation quality.
 
-**No downstream evaluation has been run** — no view retrieval, no pan-organ eval, no LoRA.
-Nothing about the model's quality is established. Checkpoint selection must not default to 50K
-(as Phase 6 did), because the trajectory passed through a collapse episode.
+**View-retrieval sweep — all 10 checkpoints + control** (`results/quality_view_retrieval_lidc_holdout.json`,
+2026-10-02, layer 9, N=512, identical holdout harness; control = the contaminated Phase 6 50K
+evaluated on the SAME split so the comparison is a measurement):
+
+| Checkpoint | ratio vs random | top1 | top5 |
+|---|---|---|---|
+| holdout@5K  | 20.0× | 0.0391 | 0.0996 |
+| holdout@10K | 24.0× | 0.0469 | 0.1406 |
+| holdout@15K | 27.0× | 0.0527 | 0.1582 |
+| **holdout@20K** (pre-dip peak) | **30.0×** | 0.0586 | 0.1699 |
+| holdout@25K | 29.0× | 0.0566 | 0.1758 |
+| holdout@30K (collapse episode) | 31.0× | 0.0605 | 0.1875 |
+| holdout@35K | 29.0× | 0.0566 | 0.1836 |
+| **holdout@40K** (post-recovery peak) | **30.0×** | 0.0586 | 0.1953 |
+| holdout@45K | 28.0× | 0.0547 | 0.1855 |
+| holdout@50K | 28.0× | 0.0547 | 0.1934 |
+| control:phase6-50K (contaminated) | 31.0× | 0.0605 | 0.1875 |
+
+The clean-split backbone matches the contaminated Phase 6 control within eval noise (20K/40K
+`30.0×` vs control `31.0×`). The single best holdout point is 30K (`31.0×`) — the step of the
+entropy-collapse episode, not a usable selection. Removing the patient leak cost nothing on
+view retrieval; view retrieval is not a release gate for single-organ models (Phase 8).
+
+**3-seed LoRA benchmark** (GPU job `lidc-holdout-lora-3seed-v1`, runner
+`scripts/release/run_lidc_holdout_lora_3seed.py` commit `8bcb26a`, results
+`results/lidc_patient_holdout_lora_3seed.json` complete 2026-11-20; 9/9 cells, 121 held-out
+patients / 315 test slices, standard protocol rank=8 alpha=16 lr=5e-4 50ep bs=32 −30/120):
+
+Registered gate metric is **slice-level test AUROC** (aggregated by the runner, same harness as
+external validation). Patient-level is recorded as the honest secondary (121 patients ⇒ wide CI):
+
+| Checkpoint | seed 42 | seed 43 | seed 44 | mean | 95% CI | gate |
+|---|---|---|---|---|---|---|
+| **20K slice** | 0.6477 | 0.7055 | 0.7215 | **0.6916** | [0.6476, 0.7355] | **FAIL** |
+| **40K slice** | 0.7129 | 0.6626 | 0.6928 | **0.6894** | [0.6608, 0.7181] | **FAIL** |
+| 50K slice (reference) | 0.6716 | 0.6595 | 0.6854 | 0.6722 | [0.6575, 0.6868] | FAIL |
+| 20K patient | 0.6390 | 0.7652 | 0.7627 | 0.7223 | [0.6407, 0.8039] | (PIVOT-class) |
+| 40K patient | 0.7277 | 0.6322 | 0.7299 | 0.6966 | [0.6335, 0.7597] | FAIL |
+| 50K patient (reference) | 0.7173 | 0.6330 | 0.7367 | 0.6957 | [0.6333, 0.7581] | FAIL |
+
+Both pre-registered primary checkpoints (`20K`, `40K`) fall below the `0.710` baseline mean on
+the registered metric; no checkpoint clears the gate, and the patient-level 20K mean clears the
+mean threshold but its CI lower bound (`0.6407`) is nowhere near `0.710`.
+
+### Adversarial pass (2026-11-20, completed BEFORE the verdict)
+
+- [x] Metric code has unit tests — `tests/test_lidc_holdout_lora_3seed.py` (aggregate/CI math,
+  gate classification, leak guards; commit `8bcb26a`); `auroc`/`patient_auroc` in
+  `eval_external.py` validated on synthetic perfect/reversed/mixed cases (commit `2073ff0`).
+- [x] Metric definition stable vs compared arms — slice-level AUROC via the same
+  `eval_external` harness; window L=−30/W=120 identical to the 0.710 baseline row
+  (Phase 2 ablation table). Disclosed asymmetries: the 0.710 baseline is a **val-set** AUROC
+  (the old protocol had no test split) and its 4-dataset backbone was itself pretrained on
+  LIDC — the baseline is leak-inflated while this arm is clean, so the comparison is
+  conservative against this arm, not favorable.
+- [x] Result reproduced — fresh-process re-eval of two cells (`ck20000/seed43`,
+  `ck40000/seed43`) reproduced `test_slice_auroc` and `test_patient_auroc` exactly
+  (0.7055279654807457 / 0.6625824310021982); aggregates recomputed from raw rows match
+  the stored values exactly; the design itself carries 3 independent seeds.
+- [x] Extremes + edge cases inspected — early-stop consistency: seed 43 at 40K/50K stopped at
+  epoch 5 (val 0.661/0.664) and delivered the two lowest test AUROCs (0.632/0.633); full cell
+  range 0.632–0.765; no degenerate (≈0/≈1) AUROC; `test_patient_count=121` in every cell.
+- [x] Leak independently re-verified (fresh process) — `verify_no_patient_leak`: 771 pretrain /
+  239 holdout patients, 775/243 series, overlap 0; manifest holdout patients equal the
+  malignancy val+test CSV patients.
+- [x] No checkpoint cherry-picking — 20K/40K were pre-registered before any LoRA ran
+  (PRD-0001 §2); the best view-retrieval checkpoint (30K, 31.0×) sits inside the collapse
+  episode and was NOT selected; 50K is reference-only.
+- [x] Results-file integrity — `complete: true`, 9/9 cells, all 9 adapter directories on disk,
+  protocol stamps match the runner defaults.
 
 ### Verdict
 
-**PENDING** — pretrain complete and split clean, but representation quality is unmeasured and
-the trajectory shows an entropy-collapse episode. Gate remains the 3-seed LoRA test AUROC;
-run view retrieval first (cheap, per-checkpoint) to select the checkpoint honestly.
+**CONCLUDED — FAIL.** Both primary checkpoints' 3-seed mean slice test AUROC
+(`20K`: 0.6916, `40K`: 0.6894) fall below the 0.710 baseline; the reference 50K is lower still
+(0.6722). With the patient leak removed, single-organ LIDC pretraining does **not** beat the
+4-dataset generalist — the Phase 6 `0.728` was leakage, not skill. Seed variance is itself a
+finding (slice range 0.632–0.765 at fixed checkpoint): three seeds were the minimum that could
+have caught this, and red-line #5's multi-seed rule is now empirically justified.
+The 0.710 patient-stratified ViT-Small number remains the project's LIDC reference (with its
+own disclosures). Further LIDC specialist work requires a new hypothesis, as with colon.
+Framing stays **internal-only** (red line #4): no external cohort is paired with LIDC; nothing
+here is release-grade evidence, and Release #2 does not ship.
+
+### Artifacts
+
+- `results/lidc_patient_holdout_lora_3seed.json` — 9 cells + aggregates + leak stamp (this commit)
+- `results/quality_view_retrieval_lidc_holdout.json` — checkpoint sweep + control
+- `scripts/release/run_lidc_holdout_lora_3seed.py` + `tests/test_lidc_holdout_lora_3seed.py` (`8bcb26a`)
+- `adapters/lidc-holdout-lora-ck{20000,40000,50000}-seed{42,43,44}/` — all 9 adapters
+- `releases/launch-drafts/lidc-patient-holdout-brief.md` — lawrenz.com brief (negative result)
+- Parent PRD: `docs/prd/0001-lidc-patient-holdout-3seed-lora.md` (tickets #34/#35/#36)
 
 ---
 
@@ -905,4 +988,4 @@ This is the reference pattern for Release #2 — the machinery is reusable
 
 ---
 
-*Ledger last updated: 2026-10-01 (reconciled with EXPERIMENT_TREE.md + PROJECT_STATUS.md). See EXPERIMENT_TREE.md for the workstream map and PROJECT_STATUS.md for current state.*
+*Ledger last updated: 2026-11-20 (reconciled with EXPERIMENT_TREE.md + PROJECT_STATUS.md). See EXPERIMENT_TREE.md for the workstream map and PROJECT_STATUS.md for current state.*

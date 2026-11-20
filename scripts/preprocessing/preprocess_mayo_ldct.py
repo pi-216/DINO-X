@@ -1,0 +1,448 @@
+#!/usr/bin/env python3
+"""Mayo LDCT (TCIA LDCT-and-Projection-data) DICOM -> canonical hu16 PNG slices.
+
+The open-access tables of this collection (CC BY 4.0 Chest + Liver, TCIA
+version 7) ship reconstructed CT stacks interleaved with DICOM-CT-PD
+projection series. Both carry Modality CT, so series are filtered by SOP
+Class: only `1.2.840.10008.5.1.4.1.1.2` (CT Image Storage) is ingested;
+Raw Data Storage projection files (1.2.840.10008.5.1.4.1.1.66, view-count
+pixel arrays) never enter the corpus even when a projection directory sits
+next to a reconstruction in the raw tree.
+
+Handling:
+  - Series are grouped from the DICOM headers — `(StudyInstanceUID,
+    SeriesInstanceUID)` — not from directory names.
+  - SOPInstanceUID duplicates are dropped (first file wins) so a rerun or a
+    double-shipped slice never produces a doubled stack.
+  - Slices are ordered by ImagePositionPatient z (fallback InstanceNumber);
+    z-spacing is the median adjacent-slice IPP delta, falling back to
+    SpacingBetweenSlices then SliceThickness.
+  - HU = stored * RescaleSlope + RescaleIntercept, stored with the canonical
+    `hu16_png` encoding from zoo.encoding (never inlined here).
+  - patient_id comes from the DICOM PatientID (`C###` chest, `L####` abdomen)
+    and falls back to the StudyInstanceUID, so zoo.splits patient-level
+    leakage asserts can be enforced downstream.
+  - Each row records the organs of its series, derived from
+    BodyPartExamined (CHEST -> chest,lung; ABDOMEN/LIVER -> abdomen,liver),
+    so the multi-body corpus stays per-series honest in the Parquet manifest.
+  - Each series directory carries meta.json; a rerun without --force
+    re-indexes from it without rewriting slice PNGs.
+  - --manifest-out writes the Parquet manifest (per-slice spacing + identity)
+    alongside the index CSV.
+
+Usage:
+    python scripts/preprocessing/preprocess_mayo_ldct.py \
+        --dicom-dir data/mayo-ldct/raw \
+        --out-root data/processed \
+        --manifest-out data/manifests/mayo_ldct.parquet
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import multiprocessing as mp
+import os
+import sys
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+_REPO_ROOT = str(Path(__file__).resolve().parents[2])
+for _p in (_REPO_ROOT, str(Path(__file__).resolve().parent)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+from zoo.encoding import hu_encoding_token, hu_to_u16
+
+CT_IMAGE_STORAGE_UID = "1.2.840.10008.5.1.4.1.1.2"
+SKIP_SUFFIXES = {
+    ".zip", ".csv", ".md", ".txt", ".png", ".jpg", ".json", ".gz",
+    ".tar", ".parquet", ".complete", ".sha256",
+}
+INDEX_COLUMNS = [
+    "png_path", "series_dir", "slice_index", "encoding",
+    "spacing_x", "spacing_y", "spacing_z", "patient_id", "sequence",
+    "organs",
+]
+CT_SEQUENCE = "ct"
+ORGANS_BY_BODY_PART = {
+    "CHEST": ["chest", "lung"],
+    "LIVER": ["abdomen", "liver"],
+    "ABDOMEN": ["abdomen", "liver"],
+}
+
+
+def _need(mod: str) -> None:
+    raise SystemExit(f"Missing dependency: {mod}. pip install {mod}")
+
+
+try:
+    import pydicom  # type: ignore
+    from pydicom.dataset import FileMetaDataset  # type: ignore
+    from pydicom.uid import ImplicitVRLittleEndian  # type: ignore
+except ImportError:
+    _need("pydicom")
+
+
+@dataclass(frozen=True)
+class SliceEntry:
+    path: Path
+    study: str
+    series: str
+    sop: str
+    modality: str
+    sop_class: str
+    body_part: str
+    instance: int
+    sort_z: float
+    has_ipp: bool
+    patient_id: str
+    spacing_x: float | None
+    spacing_y: float | None
+    slice_thickness: float | None
+    spacing_between: float | None
+
+
+def iter_dicom_files(dicom_dir: Path) -> list[Path]:
+    files: list[Path] = []
+    for root, _, fnames in os.walk(dicom_dir):
+        for fname in fnames:
+            fp = Path(root) / fname
+            if fp.suffix.lower() in SKIP_SUFFIXES or fname == "LICENSE":
+                continue
+            if fp.suffix and fp.suffix.lower() != ".dcm":
+                continue
+            files.append(fp)
+    files.sort(key=str)
+    return files
+
+
+def read_entry(path: Path) -> SliceEntry | None:
+    try:
+        ds = pydicom.dcmread(str(path), stop_before_pixels=True, force=True)
+    except Exception:
+        return None
+    if not hasattr(ds, "Rows") or not hasattr(ds, "Columns"):
+        return None
+    study = str(getattr(ds, "StudyInstanceUID", "") or "")
+    series = str(getattr(ds, "SeriesInstanceUID", "") or "")
+    sop = str(getattr(ds, "SOPInstanceUID", "") or "")
+    if not study or not series:
+        return None
+    ipp = getattr(ds, "ImagePositionPatient", None)
+    instance = int(getattr(ds, "InstanceNumber", 0) or 0)
+    has_ipp = ipp is not None and len(ipp) >= 3
+    sort_z = float(ipp[2]) if has_ipp else float(instance)
+    patient = str(getattr(ds, "PatientID", "") or "") or study
+    ps = getattr(ds, "PixelSpacing", None)
+    spacing_x = float(ps[0]) if ps is not None and len(ps) >= 2 else None
+    spacing_y = float(ps[1]) if ps is not None and len(ps) >= 2 else None
+
+    def _tag(name: str) -> float | None:
+        val = getattr(ds, name, None)
+        return float(val) if val is not None else None
+
+    return SliceEntry(
+        path=path, study=study, series=series, sop=sop,
+        modality=str(getattr(ds, "Modality", "") or "").upper(),
+        sop_class=str(getattr(ds, "SOPClassUID", "") or ""),
+        body_part=str(getattr(ds, "BodyPartExamined", "") or "").upper(),
+        instance=instance, sort_z=sort_z, has_ipp=has_ipp,
+        patient_id=patient,
+        spacing_x=spacing_x, spacing_y=spacing_y,
+        slice_thickness=_tag("SliceThickness"),
+        spacing_between=_tag("SpacingBetweenSlices"),
+    )
+
+
+def group_series(files: list[Path]) -> tuple[dict[tuple[str, str], list[SliceEntry]], int]:
+    groups: dict[tuple[str, str], list[SliceEntry]] = {}
+    unreadable = 0
+    for fp in files:
+        entry = read_entry(fp)
+        if entry is None:
+            unreadable += 1
+            continue
+        groups.setdefault((entry.study, entry.series), []).append(entry)
+    return groups, unreadable
+
+
+def series_spacing(entries: list[SliceEntry]) -> tuple[float, float, float]:
+    spacing_x = next((e.spacing_x for e in entries if e.spacing_x is not None), 1.0)
+    spacing_y = next((e.spacing_y for e in entries if e.spacing_y is not None), spacing_x)
+    ipp_entries = [e for e in entries if e.has_ipp]
+    if len(ipp_entries) >= 2:
+        positions = sorted({e.sort_z for e in ipp_entries})
+        deltas = sorted(
+            abs(positions[i + 1] - positions[i])
+            for i in range(len(positions) - 1)
+        )
+        spacing_z = deltas[len(deltas) // 2]
+        if spacing_z > 0:
+            return spacing_x, spacing_y, spacing_z
+    between = next((e.spacing_between for e in entries if e.spacing_between), None)
+    thickness = next((e.slice_thickness for e in entries if e.slice_thickness), None)
+    return spacing_x, spacing_y, between or thickness or 1.0
+
+
+def load_hu_slice(path: Path) -> "np.ndarray":
+    ds = pydicom.dcmread(str(path), force=True)
+    if getattr(ds, "file_meta", None) is None:
+        ds.file_meta = FileMetaDataset()
+    if getattr(ds.file_meta, "TransferSyntaxUID", None) is None:
+        ds.file_meta.TransferSyntaxUID = ImplicitVRLittleEndian
+    arr = ds.pixel_array.astype(np.float32)
+    slope = float(getattr(ds, "RescaleSlope", 1.0) or 1.0)
+    intercept = float(getattr(ds, "RescaleIntercept", 0.0) or 0.0)
+    return arr * slope + intercept
+
+
+def save_slice_hu16(hu_slice: "np.ndarray", out_path: Path) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(hu_to_u16(hu_slice)).save(out_path, format="PNG")
+
+
+def _meta_path(series_dir: Path) -> Path:
+    return series_dir / "meta.json"
+
+
+def _row_for(
+    png_path: Path,
+    series_name: str,
+    slice_idx: int,
+    spacing: tuple[float, float, float],
+    patient_id: str,
+    organs: list[str],
+) -> list[str]:
+    return [
+        str(png_path),
+        series_name,
+        str(slice_idx),
+        hu_encoding_token(),
+        f"{spacing[0]:.6f}",
+        f"{spacing[1]:.6f}",
+        f"{spacing[2]:.6f}",
+        patient_id,
+        CT_SEQUENCE,
+        ";".join(organs),
+    ]
+
+
+def _reindex_existing(
+    series_dir: Path,
+    series_name: str,
+) -> tuple[list[list[str]], tuple[float, float, float] | None]:
+    meta_file = _meta_path(series_dir)
+    if not meta_file.exists():
+        return [], None
+    meta = json.loads(meta_file.read_text())
+    spacing = tuple(meta["spacing"])
+    organs = meta.get("organs", [])
+    rows: list[list[str]] = []
+    for p in sorted(series_dir.glob("slice_*.png")):
+        try:
+            idx = int(p.stem.split("_", 1)[1])
+        except ValueError:
+            continue
+        rows.append(_row_for(
+            p, series_name, idx, spacing, meta["patient_id"], organs,
+        ))
+    return rows, spacing
+
+
+def ingest_group(
+    key: tuple[str, str],
+    entries: list[SliceEntry],
+    out_root: Path,
+    dataset_name: str,
+    min_slices: int = 3,
+    force: bool = False,
+) -> tuple[list[list[str]], int, tuple[float, float, float] | None]:
+    study, series = key
+    seen_sop: set[str] = set()
+    unique: list[SliceEntry] = []
+    for e in sorted(entries, key=lambda e: (e.sort_z, e.instance, str(e.path))):
+        if e.sop and e.sop in seen_sop:
+            continue
+        if e.sop:
+            seen_sop.add(e.sop)
+        unique.append(e)
+
+    if unique and unique[0].modality != "CT":
+        print(f"skip=true series={series} reason=non_ct_modality "
+              f"modality={unique[0].modality} files={len(unique)}", flush=True)
+        return [], 0, None
+
+    if unique and unique[0].sop_class != CT_IMAGE_STORAGE_UID:
+        print(f"skip=true series={series} reason=projection_or_non_image_sop "
+              f"sop_class={unique[0].sop_class} files={len(unique)}", flush=True)
+        return [], 0, None
+
+    body_part = next((e.body_part for e in unique if e.body_part), "")
+    organs = list(ORGANS_BY_BODY_PART.get(body_part, []))
+    if not organs:
+        print(f"warn=true series={series} reason=unknown_body_part "
+              f"body_part={body_part or 'none'}", flush=True)
+
+    series_name = f"{dataset_name}_{study}_{series}"
+    out_series_dir = out_root / dataset_name / series_name
+
+    if not force and out_series_dir.exists():
+        rows, spacing = _reindex_existing(out_series_dir, series_name)
+        if rows:
+            print(f"skip=true series={series} reason=already_converted "
+                  f"slices={len(rows)}")
+            return rows, len(rows), spacing
+
+    if len(unique) < min_slices:
+        print(f"skip=true series={series} reason=too_few_slices "
+              f"slices={len(unique)}")
+        return [], 0, None
+
+    spacing = series_spacing(unique)
+    patient_id = unique[0].patient_id
+    rows: list[list[str]] = []
+    base_shape: tuple[int, int] | None = None
+
+    for e in unique:
+        try:
+            hu = load_hu_slice(e.path)
+        except Exception as exc:
+            print(f"warn=true series={series} file={e.path.name} "
+                  f"reason=pixel_load_failed err={exc}", flush=True)
+            continue
+        shape = (int(hu.shape[0]), int(hu.shape[1]))
+        if base_shape is None:
+            base_shape = shape
+        elif base_shape != shape:
+            continue
+        out_path = out_series_dir / f"slice_{len(rows):04d}.png"
+        save_slice_hu16(hu, out_path)
+        rows.append(_row_for(out_path, series_name, len(rows), spacing,
+                             patient_id, organs))
+
+    n_slices = len(rows)
+    if n_slices == 0:
+        print(f"skip=true series={series} reason=no_decodable_slices")
+        return [], 0, None
+
+    _meta_path(out_series_dir).write_text(json.dumps({
+        "spacing": list(spacing),
+        "patient_id": patient_id,
+        "study_uid": study,
+        "series_uid": series,
+        "body_part": body_part,
+        "organs": organs,
+        "n_slices": n_slices,
+        "sequence": CT_SEQUENCE,
+        "encoding": hu_encoding_token(),
+    }))
+    print(f"ok=true series={series} slices={n_slices} organs={organs} "
+          f"spacing=({spacing[0]:.3f}, {spacing[1]:.3f}, {spacing[2]:.3f})", flush=True)
+    return rows, n_slices, spacing
+
+
+def _ingest_job(job: tuple) -> tuple:
+    return ingest_group(*job)
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(
+        description=(
+            "Convert Mayo LDCT reconstructed CT DICOM to canonical hu16 "
+            "16-bit PNG slices with a spacing/identity/organs index CSV; "
+            "projection series are skipped by SOP class."
+        ),
+    )
+    ap.add_argument("--dicom-dir", type=Path, required=True,
+                    help="Directory containing fetched Mayo LDCT DICOM files")
+    ap.add_argument("--out-root", type=Path, default=Path("data/processed"),
+                    help="Root output directory for processed data")
+    ap.add_argument("--dataset-name", type=str, default="mayo-ldct",
+                    help="Dataset identifier")
+    ap.add_argument("--min-slices", type=int, default=3,
+                    help="Skip series with fewer DICOM slices than this")
+    ap.add_argument("--manifest-out", type=Path, default=None,
+                    help="Also write a Parquet manifest at this path")
+    ap.add_argument("--force", action="store_true",
+                    help="Reprocess series even if output already exists")
+    ap.add_argument("--workers", type=int, default=8,
+                    help="Parallel processes for series conversion (1 = serial)")
+    args = ap.parse_args(argv)
+
+    dicom_dir = args.dicom_dir
+    if not dicom_dir.is_dir():
+        print(f"ERROR: DICOM directory not found: {dicom_dir}", file=sys.stderr)
+        return 2
+
+    files = iter_dicom_files(dicom_dir)
+    if not files:
+        print(f"ERROR: no DICOM files found under: {dicom_dir}", file=sys.stderr)
+        return 2
+
+    groups, unreadable = group_series(files)
+    if unreadable:
+        print(f"warning: {unreadable} unreadable file(s) skipped", file=sys.stderr)
+    print(f"Found {len(files)} candidate files in {len(groups)} series")
+
+    index_path = args.out_root / args.dataset_name / "index.csv"
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+
+    total_slices = 0
+    total_series = 0
+    spacings: list[tuple[float, float, float]] = []
+
+    keys = sorted(groups)
+    jobs = [(k, groups[k], args.out_root, args.dataset_name,
+             args.min_slices, args.force) for k in keys]
+
+    with index_path.open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(INDEX_COLUMNS)
+        if args.workers == 1:
+            results = [ingest_group(*job) for job in jobs]
+        else:
+            with ProcessPoolExecutor(
+                    max_workers=args.workers,
+                    mp_context=mp.get_context("forkserver"),
+                ) as pool:
+                results = list(pool.map(_ingest_job, jobs))
+        for rows, n, spacing in results:
+            for row in rows:
+                w.writerow(row)
+            if n > 0:
+                total_slices += n
+                total_series += 1
+                if spacing is not None:
+                    spacings.append(spacing)
+
+    print(f"\nDone: {total_series} series, {total_slices} slices")
+    print(f"Index: {index_path}")
+
+    if spacings:
+        for axis, name in zip((0, 1, 2), ("pixel_x", "pixel_y", "z")):
+            vals = [s[axis] for s in spacings]
+            print(f"  {name}: min={min(vals):.4f} max={max(vals):.4f}")
+
+    if total_slices == 0:
+        print("ERROR: no slices ingested — check --dicom-dir and SOP class",
+              file=sys.stderr)
+        return 1
+
+    if args.manifest_out is not None:
+        from mvp_prepare_data import index_csv_to_manifest
+
+        manifest = index_csv_to_manifest(index_path, args.dataset_name, [])
+        manifest.save(args.manifest_out)
+        print(f"Manifest: {args.manifest_out} ({len(manifest)} slices)")
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
