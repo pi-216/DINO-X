@@ -6,16 +6,21 @@ Living workstream map — status tags: `[ACTIVE]`, `[CONCLUDED]`, `[TBD]`. Evide
 
 ## Active
 
-- **[ACTIVE] Release #2 — LIDC Clean-Split Retrain** (`lidc-specialist-vit-base-patient-holdout`)
-  - **Question (from the 2026-09-20 retraction):** does the single-organ specialist recipe hold when the backbone never sees the LoRA-eval patients? Phase 6's 0.728 was retracted (transductive leakage + series-level pretraining split), so the specialist hypothesis is **untested**, not disproven.
-  - **Pre-registered gate (before launch):** 3-seed LoRA test AUROC on patient-held-out patients only. PASS if mean ≥ 0.720 AND 95% CI lower bound > 0.710 baseline (margin outside seed noise); PIVOT if mean ≥ 0.710 but within noise; FAIL if < 0.710. Internal-only — LIDC has no external held-out set.
-  - **Split (built 2026-10-01):** LoRA-eval patients (malignancy val+test) = 239 patients / 243 series held out entirely; remaining corpus split by patient → 698 train / 77 val series. Index `data/mvp/lidc_only_t2_patientholdout.csv`; manifest `data/mvp/split_manifest_lidc_patientholdout.json`. Builder: `scripts/preprocessing/build_lidc_patient_holdout_split.py`.
-  - **Status:** gate + split committed (no launch yet); pretrain queued on the **4090 (`game`)** via the GPU scheduler behind the current queue, ViT-Base, recipe unchanged from Phase 6.
-  - **Ref:** `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`
+*(none — Release #2 adjudicated FAIL 2026-11-20, see Concluded below; next gated work needs a
+new hypothesis per `research-agent` / founder ruling)*
 
 ---
 
 ## Concluded — recent
+
+- **[CONCLUDED — FAIL] Release #2 — LIDC Clean-Split Retrain** (`lidc-specialist-vit-base-patient-holdout`)
+  - **Question (from the 2026-09-20 retraction):** does the single-organ specialist recipe hold when the backbone never sees the LoRA-eval patients? Phase 6's 0.728 was retracted (transductive leakage + series-level pretraining split), so the specialist hypothesis was **untested**, not disproven.
+  - **Pre-registered gate (before launch):** 3-seed LoRA test AUROC on patient-held-out patients only. PASS if mean ≥ 0.720 AND 95% CI lower bound > 0.710 baseline (margin outside seed noise); PIVOT if mean ≥ 0.710 but within noise; FAIL if < 0.710. Internal-only — LIDC has no external held-out set.
+  - **Method:** 239 patients / 243 series held out of pretraining entirely (`data/mvp/split_manifest_lidc_patientholdout.json`, overlap 0, re-verified 2026-11-20); 50K-step ViT-Base retrain with a teacher-entropy collapse episode at 30K (0.87) and recovery (4.70 at 45K); layer-9 view-retrieval sweep over all 10 checkpoints + Phase 6 control (20K/40K `30.0×` vs control `31.0×`); 3-seed (42/43/44) × 3-checkpoint (20K/40K primary, 50K reference) LoRA benchmark via `scripts/release/run_lidc_holdout_lora_3seed.py` (GPU job `lidc-holdout-lora-3seed-v1`).
+  - **Result:** slice-level mean test AUROC — 20K **0.6916** CI [0.6476, 0.7355], 40K **0.6894** CI [0.6608, 0.7181], 50K 0.6722 — every primary cell **below the 0.710 baseline**. Patient-level secondary does not rescue it (20K patient mean 0.7223 but CI LB 0.6407). Adversarial pass 7/7 (bit-exact fresh-process re-eval of 2 cells; leak overlap 0 re-verified).
+  - **Verdict:** **FAIL** — with the leak removed, single-organ LIDC pretraining does not beat the 4-dataset generalist; the 0.728 was leakage, not skill. Release #2 does not ship. Further LIDC specialist work needs a new hypothesis.
+  - Evidence: ledger Phase 10; results `results/lidc_patient_holdout_lora_3seed.json` + `results/quality_view_retrieval_lidc_holdout.json`; brief `releases/launch-drafts/lidc-patient-holdout-brief.md`; PRD `docs/prd/0001-lidc-patient-holdout-3seed-lora.md` (tickets #34/#35/#36); runner commit `8bcb26a`.
+  - **Ref:** `docs/RETRACTION_NOTICE_lidc-specialist-vit-base-scale-aware.md`
 
 - **[CONCLUDED — GO] 3-Slice Context Ablation** (`abl-3slice-context`)
   - **Question (from external review):** does true adjacent-slice context `[z−1,z,z+1]` beat the shipped single-slice duplication `[z,z,z]` on external CRLM?
