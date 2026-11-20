@@ -2,7 +2,7 @@
 
 > **Purpose:** Every model trained in this project, every dataset used, and the exact provenance chain from raw DICOM to training index. This document is the single source of truth for data lineage.
 
-**Last updated:** 2026-11-19
+**Last updated:** 2026-11-20
 **Governance:** `docs/experiment-structure.md`, `AGENTS.md`
 
 ---
@@ -32,6 +32,15 @@ the x10 scale — those 90K–98K CQ500 rows are mis-encoded and the index
 must be regenerated from the new corpus before any 5-dataset rerun
 (quarantine of the old corpus: #36).
 
+**Mayo LDCT fetched 2026-11-20** (#30): corpus at
+`/mnt/nas-ai-models/training-data/dino-x/mayo-ldct/raw` (299 series /
+72,588 instances / 199 patients; 38.2 GB; 149 chest + 150 abdomen series;
+Siemens 200 / GE 99). The manifest census and the on-disk instance counts
+match exactly (0 mismatches across 299 series), and all 299 series carry
+`.fetch_complete` markers. Projection series (Raw Data Storage) were excluded
+by SOP Class UID; the 99-patient head table is NIH Controlled Data Access and
+was never fetched.
+
 ### Spacing Ranges
 
 | Dataset | Pixel Spacing (mm) | Slice Thickness (mm) |
@@ -41,6 +50,7 @@ must be regenerated from the new corpus before any 5-dataset rerun
 | cq500 | 0.21–0.98 | 0.31–7.50 (z pitch) |
 | msd-colon | 0.54–0.98 | 1.3–7.5 |
 | msd-hepatic-vessel | 0.57–0.97 | 0.8–8.0 |
+| mayo-ldct | 0.55–0.98 | 1.0–3.0 (z pitch) |
 
 ---
 
@@ -251,7 +261,7 @@ These datasets are registered in the YAML catalog but have **not been used** in 
 
 | Dataset | Reason |
 |---------|--------|
-| `mayo-ldct` | Low-dose CT, multi-body-part (299 reconstructed chest/abdomen series, 72,588 instances, ~38 GB; Siemens + GE balanced for scanner-hardware invariance experiments). Ingest pipeline in tree (#30); corpus fetch in progress. |
+| `mayo-ldct` | Low-dose CT, multi-body-part (299 reconstructed chest/abdomen series, 72,588 instances, 199 patients, 38.2 GB; Siemens + GE balanced for scanner-hardware invariance experiments). Fetched 2026-11-20 (#30); not yet indexed into a combined CSV. |
 | `rsna-ich` | Brain hemorrhage (752,803 stage-2 train slices / 25,272 exams, six hemorrhage subtypes). Registered for future cranial specialist models; corpus fetch in progress (#28). |
 
 ---
