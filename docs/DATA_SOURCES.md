@@ -2,7 +2,7 @@
 
 > **Purpose:** Every model trained in this project, every dataset used, and the exact provenance chain from raw DICOM to training index. This document is the single source of truth for data lineage.
 
-**Last updated:** 2026-11-19
+**Last updated:** 2026-11-20
 **Governance:** `docs/experiment-structure.md`, `AGENTS.md`
 
 ---
@@ -18,10 +18,10 @@ All datasets are registered in `zoo/datasets/ct/*.yaml` and queryable via `zoo/r
 | 3 | `cq500` | Brain, Cranial | 165,265 | 1,223 | [Qure.ai / Kaggle](https://www.kaggle.com/datasets/crawford/qureai-headct) | CC-BY-SA-4.0 | Allowed (SA) |
 | 4 | `msd-colon` | Colon | 13,486 | 126 | [Medical Segmentation Decathlon](http://medicaldecathlon.com/) | CC-BY-SA-4.0 | Allowed (SA) |
 | 5 | `msd-hepatic-vessel` | Liver, Hepatic Vessels | 21,120 | 303 | [Medical Segmentation Decathlon](http://medicaldecathlon.com/) | CC-BY-SA-4.0 | Allowed (SA) |
-| 6 | `mayo-ldct` | Chest, Lung, Abdomen, Head | 25,000 | 299 | [TCIA](https://www.cancerimagingarchive.net/collection/ldct-and-projection-data/) | CC-BY-3.0 | Prohibited |
+| 6 | `mayo-ldct` | Chest, Lung, Abdomen, Liver | 72,588 | 299 | [TCIA](https://www.cancerimagingarchive.net/collection/ldct-and-projection-data/) ([IDC mirror](https://portal.imaging.datacommons.cancer.gov/collections/ldct_and_projection_data/)) | CC-BY-4.0 | Prohibited |
 | 7 | `rsna-ich` | Brain, Intracranial | 752,803 | 25,272 exams | [RSNA S3 archive](https://intracranial-hemorrhage.s3.us-west-2.amazonaws.com/rsna-ihd-dataset.zip) ([RODA entry](https://registry.opendata.aws/rsna-intracranial-hemorrhage-detection)) | RSNA terms (non-commercial, no redistribution) | Restricted |
 
-**Not yet used in training:** `mayo-ldct`, `rsna-ich` — registered but not included in any combined index CSV. The `rsna-ich` ingest pipeline (`scripts/preprocessing/fetch_rsna_ich_s3.py`, `preprocess_rsna_ich.py`, `download_rsna_ich.sh`) is in the tree; run `download_rsna_ich.sh --check` for current status. The Kaggle competition file API for this corpus returns empty/404 listings for automated clients, so the ingest source of record is the RSNA-managed AWS S3 archive; `fetch_rsna_ich_s3.py` range-extracts only the 752,803 `stage_2_train/*` members from the 194.7 GB Zip64 `rsna-ihd-dataset.zip` (resumable, CRC-32 verified) instead of downloading the archive.
+**Not yet used in training:** `mayo-ldct`, `rsna-ich` — registered but not included in any combined index CSV. The `rsna-ich` ingest pipeline (`scripts/preprocessing/fetch_rsna_ich_s3.py`, `preprocess_rsna_ich.py`, `download_rsna_ich.sh`) is in the tree; run `download_rsna_ich.sh --check` for current status. The Mayo LDCT ingest pipeline (`scripts/preprocessing/fetch_mayo_ldct.py`, `preprocess_mayo_ldct.py`, `download_mayo_ldct.sh`) reads only the 299 reconstructed series from the IDC open S3 mirror (`idc-open-data`) via `manifests/mayo_ldct_recon_series.json`, MD5-verifying every object; projection series are excluded by SOP Class UID (`Raw Data Storage`), not Modality, and the 99-patient head table is NIH Controlled Data Access and never fetched. The Kaggle competition file API for this corpus returns empty/404 listings for automated clients, so the ingest source of record is the RSNA-managed AWS S3 archive; `fetch_rsna_ich_s3.py` range-extracts only the 752,803 `stage_2_train/*` members from the 194.7 GB Zip64 `rsna-ihd-dataset.zip` (resumable, CRC-32 verified) instead of downloading the archive.
 
 **CQ500 re-ingested 2026-11-19** (#29): canonical corpus at
 `data/processed/cq500/` (165,265 slices / 1,223 series / 473 patients,
@@ -32,6 +32,15 @@ the x10 scale — those 90K–98K CQ500 rows are mis-encoded and the index
 must be regenerated from the new corpus before any 5-dataset rerun
 (quarantine of the old corpus: #36).
 
+**Mayo LDCT fetched 2026-11-20** (#30): corpus at
+`/mnt/nas-ai-models/training-data/dino-x/mayo-ldct/raw` (299 series /
+72,588 instances / 199 patients; 38.2 GB; 149 chest + 150 abdomen series;
+Siemens 200 / GE 99). The manifest census and the on-disk instance counts
+match exactly (0 mismatches across 299 series), and all 299 series carry
+`.fetch_complete` markers. Projection series (Raw Data Storage) were excluded
+by SOP Class UID; the 99-patient head table is NIH Controlled Data Access and
+was never fetched.
+
 ### Spacing Ranges
 
 | Dataset | Pixel Spacing (mm) | Slice Thickness (mm) |
@@ -41,6 +50,7 @@ must be regenerated from the new corpus before any 5-dataset rerun
 | cq500 | 0.21–0.98 | 0.31–7.50 (z pitch) |
 | msd-colon | 0.54–0.98 | 1.3–7.5 |
 | msd-hepatic-vessel | 0.57–0.97 | 0.8–8.0 |
+| mayo-ldct | 0.55–0.98 | 1.0–3.0 (z pitch) |
 
 ---
 
@@ -251,7 +261,7 @@ These datasets are registered in the YAML catalog but have **not been used** in 
 
 | Dataset | Reason |
 |---------|--------|
-| `mayo-ldct` | Low-dose CT, multi-body-part. Registered for future scanner-hardware invariance experiments. |
+| `mayo-ldct` | Low-dose CT, multi-body-part (299 reconstructed chest/abdomen series, 72,588 instances, 199 patients, 38.2 GB; Siemens + GE balanced for scanner-hardware invariance experiments). Fetched 2026-11-20 (#30); not yet indexed into a combined CSV. |
 | `rsna-ich` | Brain hemorrhage (752,803 stage-2 train slices / 25,272 exams, six hemorrhage subtypes). Registered for future cranial specialist models; corpus fetch in progress (#28). |
 
 ---
