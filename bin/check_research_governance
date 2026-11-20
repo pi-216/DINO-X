@@ -16,35 +16,73 @@ REQUIRED_DOCS = [
     "docs/pm/red-lines.md",
 ]
 
+MANIFEST_REL = "data/mvp/split_manifest_lidc_patientholdout.json"
 
-def main() -> int:
+
+def validate_manifest(manifest: dict) -> list[str]:
+    errors: list[str] = []
+    if manifest.get("group_key") != "patient_id":
+        errors.append("split_manifest_lidc_patientholdout.json: group_key must be 'patient_id'")
+
+    train = manifest.get("train") or {}
+    val = manifest.get("val") or {}
+    holdout = manifest.get("holdout") or {}
+
+    train_series = set(train.get("series_dir") or [])
+    val_series = set(val.get("series_dir") or [])
+    holdout_series = set(holdout.get("series_dir") or [])
+    holdout_patients = set(holdout.get("patients") or [])
+
+    if not train_series:
+        errors.append("split_manifest_lidc_patientholdout.json: train.series_dir is empty")
+    if not val_series:
+        errors.append("split_manifest_lidc_patientholdout.json: val.series_dir is empty")
+    if not holdout_series:
+        errors.append("split_manifest_lidc_patientholdout.json: holdout.series_dir is empty")
+    if not holdout_patients:
+        errors.append("split_manifest_lidc_patientholdout.json: holdout.patients is empty")
+
+    if train_series & val_series:
+        errors.append("split_manifest_lidc_patientholdout.json: train and val series_dir overlap")
+    if (train_series | val_series) & holdout_series:
+        errors.append("split_manifest_lidc_patientholdout.json: pretrain and holdout series_dir overlap")
+
+    train_patients = set(train.get("patients") or [])
+    val_patients = set(val.get("patients") or [])
+    if train_patients & val_patients:
+        errors.append("split_manifest_lidc_patientholdout.json: train and val patients overlap")
+    if (train_patients | val_patients) & holdout_patients:
+        errors.append("split_manifest_lidc_patientholdout.json: pretrain and holdout patients overlap")
+
+    return errors
+
+
+def check(root: pathlib.Path) -> list[str]:
     errors: list[str] = []
 
     for rel in REQUIRED_DOCS:
-        if not (ROOT / rel).exists():
+        if not (root / rel).exists():
             errors.append(f"missing required governance file: {rel}")
 
-    if (ROOT / "docs" / "tangential-research.md").exists():
+    if (root / "docs" / "tangential-research.md").exists():
         errors.append("docs/tangential-research.md is forbidden in-tree; use GitHub issues")
 
-    manifest_path = ROOT / "data" / "mvp" / "split_manifest_lidc_patientholdout.json"
+    manifest_path = root / MANIFEST_REL
     if not manifest_path.exists():
-        errors.append("missing patient-holdout split manifest: data/mvp/split_manifest_lidc_patientholdout.json")
+        errors.append(f"missing patient-holdout split manifest: {MANIFEST_REL}")
     else:
         try:
             manifest = json.loads(manifest_path.read_text())
-            if manifest.get("group_key") != "patient_id":
-                errors.append("split_manifest_lidc_patientholdout.json: group_key must be 'patient_id'")
-            train_p = set(manifest.get("train", {}).get("patients", []))
-            val_p = set(manifest.get("val", {}).get("patients", []))
-            holdout_p = set(manifest.get("holdout_lora_eval", {}).get("patients", []))
-            if train_p & val_p:
-                errors.append("split_manifest_lidc_patientholdout.json: train and val patients overlap")
-            if (train_p | val_p) & holdout_p:
-                errors.append("split_manifest_lidc_patientholdout.json: pretrain and holdout_lora_eval patients overlap")
         except Exception as exc:
             errors.append(f"split_manifest_lidc_patientholdout.json invalid: {exc}")
+        else:
+            errors.extend(validate_manifest(manifest))
 
+    return errors
+
+
+def main() -> int:
+    errors = check(ROOT)
     if errors:
         for err in errors:
             print(f"GOVERNANCE FAIL: {err}", file=sys.stderr)

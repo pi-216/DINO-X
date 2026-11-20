@@ -1,0 +1,198 @@
+{
+  "kind": "lidc_patient_holdout_lora_3seed",
+  "created_at": "2026-11-20T10:50:02.397418+00:00",
+  "parent_prd": 34,
+  "ticket": 35,
+  "run_slug": "20261001_182138_lidc-specialist-vit-base-patient-holdout",
+  "protocol": {
+    "task": "classification",
+    "num_classes": 2,
+    "rank": 8,
+    "alpha": 16,
+    "lr": "5e-4",
+    "epochs": 50,
+    "batch_size": 32,
+    "patience": 10,
+    "es_metric": "auroc",
+    "window_level": -30,
+    "window_width": 120,
+    "input_format": "hu16_png",
+    "scale_aware": "backbone-derived",
+    "train_csv": "/mnt/nas-ai-models/training-data/dino-x/lidc-idri/labels/malignancy_train.csv",
+    "val_csv": "/mnt/nas-ai-models/training-data/dino-x/lidc-idri/labels/malignancy_val.csv",
+    "test_csv": "/mnt/nas-ai-models/training-data/dino-x/lidc-idri/labels/malignancy_test.csv"
+  },
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "steps": [
+    20000,
+    40000,
+    50000
+  ],
+  "primary_steps": [
+    20000,
+    40000
+  ],
+  "reference_steps": [
+    50000
+  ],
+  "leak_verification": {
+    "pretrain_patients": 771,
+    "holdout_patients": 239,
+    "pretrain_series": 775,
+    "holdout_series": 243,
+    "overlap": 0,
+    "manifest": "/home/tim/source/activity/DINO-X/data/mvp/split_manifest_lidc_patientholdout.json"
+  },
+  "gate": {
+    "go_min_mean": 0.72,
+    "baseline_ci_floor": 0.71,
+    "note": "GO: mean >= 0.720 AND ci95_low > 0.710; FAIL: mean < 0.710; else PIVOT. Adjudication + adversarial pass belongs to T2."
+  },
+  "rows": [
+    {
+      "step": 20000,
+      "seed": 42,
+      "adapter": "adapters/lidc-holdout-lora-ck20000-seed42",
+      "best_epoch": 14,
+      "best_val_auroc": 0.6852459016393443,
+      "seconds": 98.4,
+      "test_slice_auroc": 0.6476837906049011,
+      "test_patient_auroc": 0.6390257252326218,
+      "test_patient_count": 121,
+      "test_slice_count": 315
+    },
+    {
+      "step": 20000,
+      "seed": 43,
+      "adapter": "adapters/lidc-holdout-lora-ck20000-seed43",
+      "best_epoch": 45,
+      "best_val_auroc": 0.7354215456674473,
+      "seconds": 189.2,
+      "test_slice_auroc": 0.7055279654807457,
+      "test_patient_auroc": 0.7651888341543513,
+      "test_patient_count": 121,
+      "test_slice_count": 315
+    },
+    {
+      "step": 20000,
+      "seed": 44,
+      "adapter": "adapters/lidc-holdout-lora-ck20000-seed44",
+      "best_epoch": 47,
+      "best_val_auroc": 0.7826405152224825,
+      "seconds": 189.6,
+      "test_slice_auroc": 0.7214849792395994,
+      "test_patient_auroc": 0.7627257799671593,
+      "test_patient_count": 121,
+      "test_slice_count": 315
+    },
+    {
+      "step": 40000,
+      "seed": 42,
+      "adapter": "adapters/lidc-holdout-lora-ck40000-seed42",
+      "best_epoch": 45,
+      "best_val_auroc": 0.758284543325527,
+      "seconds": 190.6,
+      "test_slice_auroc": 0.7129365790116421,
+      "test_patient_auroc": 0.7276956759715381,
+      "test_patient_count": 121,
+      "test_slice_count": 315
+    },
+    {
+      "step": 40000,
+      "seed": 43,
+      "adapter": "adapters/lidc-holdout-lora-ck40000-seed43",
+      "best_epoch": 5,
+      "best_val_auroc": 0.661387587822014,
+      "seconds": 62.0,
+      "test_slice_auroc": 0.6625824310021982,
+      "test_patient_auroc": 0.632183908045977,
+      "test_patient_count": 121,
+      "test_slice_count": 315
+    },
+    {
+      "step": 40000,
+      "seed": 44,
+      "adapter": "adapters/lidc-holdout-lora-ck40000-seed44",
+      "best_epoch": 41,
+      "best_val_auroc": 0.7665983606557377,
+      "seconds": 189.0,
+      "test_slice_auroc": 0.6927867784743141,
+      "test_patient_auroc": 0.7298850574712644,
+      "test_patient_count": 121,
+      "test_slice_count": 315
+    },
+    {
+      "step": 50000,
+      "seed": 42,
+      "adapter": "adapters/lidc-holdout-lora-ck50000-seed42",
+      "best_epoch": 41,
+      "best_val_auroc": 0.7523126463700234,
+      "seconds": 190.4,
+      "test_slice_auroc": 0.6716193112431816,
+      "test_patient_auroc": 0.717296113847838,
+      "test_patient_count": 121,
+      "test_slice_count": 315
+    },
+    {
+      "step": 50000,
+      "seed": 43,
+      "adapter": "adapters/lidc-holdout-lora-ck50000-seed43",
+      "best_epoch": 5,
+      "best_val_auroc": 0.6642564402810305,
+      "seconds": 62.0,
+      "test_slice_auroc": 0.6595294309207849,
+      "test_patient_auroc": 0.6330049261083743,
+      "test_patient_count": 121,
+      "test_slice_count": 315
+    },
+    {
+      "step": 50000,
+      "seed": 44,
+      "adapter": "adapters/lidc-holdout-lora-ck50000-seed44",
+      "best_epoch": 41,
+      "best_val_auroc": 0.7596896955503513,
+      "seconds": 190.1,
+      "test_slice_auroc": 0.6853781649434177,
+      "test_patient_auroc": 0.7367268746579091,
+      "test_patient_count": 121,
+      "test_slice_count": 315
+    }
+  ],
+  "aggregates": {
+    "20000": {
+      "n": 3,
+      "mean": 0.6915655784417488,
+      "std": 0.038831238067355556,
+      "se": 0.022419225751154175,
+      "ci95_low": 0.6476238959694867,
+      "ci95_high": 0.735507260914011,
+      "gate": "FAIL",
+      "primary": true
+    },
+    "40000": {
+      "n": 3,
+      "mean": 0.6894352628293848,
+      "std": 0.025343826630520917,
+      "se": 0.014632265127426458,
+      "ci95_low": 0.660756023179629,
+      "ci95_high": 0.7181145024791407,
+      "gate": "FAIL",
+      "primary": true
+    },
+    "50000": {
+      "n": 3,
+      "mean": 0.6721756357024614,
+      "std": 0.012933343934234462,
+      "se": 0.00746706960195228,
+      "ci95_low": 0.657540179282635,
+      "ci95_high": 0.6868110921222879,
+      "gate": "FAIL",
+      "primary": false
+    }
+  },
+  "complete": true
+}
