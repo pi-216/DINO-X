@@ -107,36 +107,34 @@ fi
 
 echo "=== RSNA ICH Download & Preprocess Pipeline (source: $SOURCE) ==="
 
-if [ -d "$RAW_DIR" ] && [ -n "$(find "$RAW_DIR" -name '*.dcm' -print -quit 2>/dev/null)" ]; then
-  echo "Step 1: SKIP — DICOM files already exist in $RAW_DIR"
-else
-  if [ "$SOURCE" = "aws" ]; then
-    echo "Step 1: Range-extracting stage_2_train DICOM from the RSNA S3 mirror..."
-    PYTHONUNBUFFERED=1 "$PYTHON_BIN" "$FETCH_SCRIPT" \
-        --url "$S3_ZIP" \
-        --out-dir "$RAW_DIR" \
-        --labels-out "$LABELS_OUT" \
-        --workers "$WORKERS"
-    rc=$?
-    if [ $rc -ne 0 ]; then
-      echo "ERROR: S3 range extraction failed with exit code $rc" >&2
-      echo "Probe reachability with: $0 --check" >&2
-      exit $rc
-    fi
-  else
-    echo "Step 1: Downloading stage-1 train DICOM from Kaggle..."
-    require_kaggle
-    if ! "$KAGGLE_BIN" competitions download -c "$COMPETITION" -f "$STAGE1_ZIP" -p "$RAW_DIR"; then
-      echo "ERROR: could not download '$STAGE1_ZIP' from competition '$COMPETITION'." >&2
-      echo "The Kaggle file API for this competition returns 404s; the canonical" >&2
-      echo "corpus is on the RSNA AWS S3 mirror — run: $0 --source aws" >&2
-      exit 1
-    fi
-    mkdir -p "$RAW_DIR"
-    echo "  Extracting $STAGE1_ZIP ..."
-    unzip -q -o "$RAW_DIR/$STAGE1_ZIP" -d "$RAW_DIR"
-    rm -f "$RAW_DIR/$STAGE1_ZIP"
+if [ "$SOURCE" = "aws" ]; then
+  echo "Step 1: Range-extracting stage_2_train DICOM from the RSNA S3 mirror..."
+  PYTHONUNBUFFERED=1 "$PYTHON_BIN" "$FETCH_SCRIPT" \
+      --url "$S3_ZIP" \
+      --out-dir "$RAW_DIR" \
+      --labels-out "$LABELS_OUT" \
+      --workers "$WORKERS"
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "ERROR: S3 range extraction failed with exit code $rc" >&2
+    echo "Probe reachability with: $0 --check" >&2
+    exit $rc
   fi
+elif [ -d "$RAW_DIR" ] && [ -n "$(find "$RAW_DIR" -name '*.dcm' -print -quit 2>/dev/null)" ]; then
+  echo "Step 1: SKIP — Kaggle stage-1 DICOM already extracted in $RAW_DIR"
+else
+  echo "Step 1: Downloading stage-1 train DICOM from Kaggle..."
+  require_kaggle
+  if ! "$KAGGLE_BIN" competitions download -c "$COMPETITION" -f "$STAGE1_ZIP" -p "$RAW_DIR"; then
+    echo "ERROR: could not download '$STAGE1_ZIP' from competition '$COMPETITION'." >&2
+    echo "The Kaggle file API for this competition returns 404s; the canonical" >&2
+    echo "corpus is on the RSNA AWS S3 mirror — run: $0 --source aws" >&2
+    exit 1
+  fi
+  mkdir -p "$RAW_DIR"
+  echo "  Extracting $STAGE1_ZIP ..."
+  unzip -q -o "$RAW_DIR/$STAGE1_ZIP" -d "$RAW_DIR"
+  rm -f "$RAW_DIR/$STAGE1_ZIP"
 fi
 
 N_DCM=$(find "$RAW_DIR" -name '*.dcm' | wc -l)
