@@ -230,3 +230,41 @@ def test_shell_check_aws_via_url_override(tmp_path: Path, fixture_zip: Path) -> 
                       env={"RSNA_S3_ZIP_URL": str(fixture_zip)})
     assert proc.returncode == 0
     assert "check=true" in proc.stdout
+
+
+def _make_python_stub(tmp_path: Path) -> tuple[Path, Path]:
+    stub = tmp_path / "python_stub.sh"
+    argv_log = tmp_path / "argv.log"
+    stub.write_text(
+        "#!/usr/bin/env bash\n"
+        f"printf '%s\\n' \"$*\" >> {argv_log}\n"
+        "exit 0\n"
+    )
+    stub.chmod(0o755)
+    return stub, argv_log
+
+
+def test_shell_aws_ingest_refetches_when_partial_corpus_present(
+    tmp_path: Path,
+) -> None:
+    stub, argv_log = _make_python_stub(tmp_path)
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    (raw / "ID_partial.dcm").write_bytes(b"partial")
+    proc = _run_shell(
+        ["--source", "aws"],
+        env={
+            "PYTHON_BIN": str(stub),
+            "RSNA_RAW_DIR": str(raw),
+            "RSNA_PROCESSED_DIR": str(tmp_path / "processed"),
+            "RSNA_LABELS_OUT": str(tmp_path / "labels.csv"),
+            "RSNA_MANIFEST_PATH": str(tmp_path / "manifest.parquet"),
+        },
+    )
+    assert proc.returncode == 0, proc.stderr
+    calls = argv_log.read_text().splitlines()
+    fetch_calls = [c for c in calls if "fetch_rsna_ich_s3.py" in c]
+    preprocess_calls = [c for c in calls if "preprocess_rsna_ich.py" in c]
+    assert len(fetch_calls) == 1
+    assert len(preprocess_calls) == 1
+    assert calls.index(fetch_calls[0]) < calls.index(preprocess_calls[0])
