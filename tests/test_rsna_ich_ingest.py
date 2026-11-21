@@ -324,7 +324,8 @@ def test_registry_entry_uses_canonical_encoding_and_terms_license() -> None:
     assert entry.preprocessing.index_csv == "index.csv"
     assert "non-commercial" in entry.license.lower()
     assert "CC-BY-SA-4.0" not in entry.license
-    assert entry.total_slices == 752803
+    assert entry.total_slices == 752802
+    assert entry.total_series == 21744
 
 
 def test_workers_parallel_matches_serial(tmp_path: Path, rsna_raw: Path) -> None:

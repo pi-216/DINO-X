@@ -28,10 +28,10 @@ attribution: >
   Shih G, et al. Construction of a Machine Learning Dataset through
   Collaboration: The RSNA 2019 Brain CT Hemorrhage Challenge.
   Radiology: Artificial Intelligence 2020;2:3.
-total_slices: 752803
-total_series: 0
-pixel_spacing_range: [0.3, 0.7]
-slice_thickness_range: [1.0, 5.0]
+total_slices: 752802
+total_series: 21744
+pixel_spacing_range: [0.292969, 0.976562]
+slice_thickness_range: [0.25, 6.928192]
 hu_range: [-1024, 3071]
 annotations:
   - intracranial_hemorrhage
@@ -64,5 +64,12 @@ notes: >
   (resumable, CRC-verified), groups series from DICOM header UIDs and
   decodes HU via RescaleSlope/Intercept before the canonical hu16
   encoding (scripts/preprocessing/download_rsna_ich.sh --check reports
-  the census; total_series stays 0 until the processed corpus is
-  measured).
+  the census). Measured processed corpus (2026-11-21, #28): 752,802
+  slices across 21,744 series with 18,938 distinct anonymized PatientID
+  pseudo-UIDs — the archive member census is 752,803, but one member
+  (ID_6431af929.dcm) is truncated inside the RSNA archive itself (its
+  CRC matches the archive bytes) and was dropped with a logged
+  pixel_load_failed warning during conversion. Stage-2 anonymization
+  mints per-series pseudo UIDs, so the paper's 25,272-exam grouping is
+  not derivable from the published files; spacing ranges above are
+  measured from index.csv (median z-delta, not SliceThickness).
